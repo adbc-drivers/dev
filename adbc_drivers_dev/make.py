@@ -1,0 +1,407 @@
+#!/usr/bin/env python3
+# Copyright (c) 2025 ADBC Drivers Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+A build script for ADBC drivers using doit.
+
+See: https://pydoit.org/
+"""
+
+import os
+import platform
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+import doit
+import packaging.version
+
+match platform.system():
+    case "Darwin":
+        EXT = "dylib"
+    case "Linux":
+        EXT = "so"
+    case "Windows":
+        EXT = "dll"
+    case _:
+        raise RuntimeError(f"Unsupported platform: {platform.system()}")
+
+
+DOIT_CONFIG = {
+    "default_tasks": ["build"],
+}
+
+
+def to_bool(value: str | bool) -> bool:
+    if value is None:
+        return False
+    elif isinstance(value, bool):
+        return value
+    value = value.lower()
+    if value in {"1", "true", "yes"}:
+        return True
+    elif value in {"0", "false", "no"}:
+        return False
+    raise ValueError(f"Cannot convert {value!r} to bool")
+
+
+def is_verbose() -> bool:
+    return to_bool(doit.get_var("VERBOSE", False))
+
+
+def architecture() -> str:
+    match platform.machine():
+        case "AMD64":
+            return "amd64"
+        case "aarch64":
+            return "arm64"
+        case "arm64v8":
+            return "arm64"
+        case "x86_64":
+            return "amd64"
+        case _:
+            raise ValueError(f"{platform.machine()} is not a recognized architecture")
+
+
+def _check_call(f, *args, **kwargs) -> str:
+    extra_env = kwargs.pop("env", {})
+    if extra_env:
+        env = os.environ.copy()
+        for k, v in extra_env.items():
+            if k in {"CGO_CFLAGS", "CGO_LDFLAGS"}:
+                if k in env:
+                    env[k] += " " + v
+                else:
+                    env[k] = v
+            elif k in {"ARCH", "SOURCE_ROOT"}:
+                env[k] = v
+            else:
+                raise TypeError(f"Unsupported env var override {k}")
+        env.update(extra_env)
+        kwargs["env"] = env
+
+    if is_verbose():
+        # TODO: use log, color
+        if kwargs.get("cwd") is not None:
+            cwd = kwargs["cwd"]
+        else:
+            cwd = "."
+        print(
+            "*",
+            f"[{cwd}]",
+            " ".join(shlex.quote(arg) for arg in args[0]),
+            file=sys.stderr,
+        )
+        if extra_env:
+            for k, v in extra_env.items():
+                print("*", "[env]", f"{k}={v}", file=sys.stderr)
+    return f(*args, **kwargs, text=True)
+
+
+def check_call(*args, **kwargs) -> str:
+    return _check_call(subprocess.check_call, *args, **kwargs)
+
+
+def check_output(*args, **kwargs) -> str:
+    return _check_call(subprocess.check_output, *args, **kwargs).strip()
+
+
+def info(*args, **kwargs):
+    print("!", *args, **kwargs, file=sys.stderr)
+
+
+def detect_version(
+    driver_root: Path,
+    *,
+    strict: bool = False,
+) -> str:
+    if not (driver_root / "go.mod").is_file():
+        raise ValueError(f"{driver_root} does not contain a go.mod")
+
+    repo_root = driver_root
+    while not (repo_root / ".git").is_dir():
+        if repo_root.parent == repo_root:
+            raise ValueError(f"{driver_root} is not in a git repository")
+        repo_root = repo_root.parent
+
+    prefix = str(driver_root.relative_to(repo_root))
+    if prefix == ".":
+        prefix = "v"
+    else:
+        prefix = f"{prefix}/v"
+
+    tags = check_output(
+        [
+            "git",
+            "tag",
+            "-l",
+            "--no-column",
+            "--no-format",
+            "--no-color",
+            "--sort",
+            "-v:refname",
+            f"{prefix}*",
+        ],
+        cwd=repo_root,
+    ).splitlines()
+
+    if not tags:
+        if strict:
+            raise ValueError(f"No tags found for driver {driver_root}")
+        version = "unknown"
+    else:
+        tag = tags[0]
+        version = tag[len(prefix) - 1 :]
+        # If we are not on the tag, append the commit count and hash
+        count = int(
+            check_output(["git", "rev-list", f"{tag}..HEAD", "--count"], cwd=repo_root)
+        )
+        if count > 0:
+            if strict:
+                raise ValueError(
+                    f"Driver {driver_root} is not on tag {tag}, but has {count} commits since"
+                )
+            rev = check_output(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root)
+            version += f"-dev.{count}.{rev}"
+
+    # Append -dirty if there are uncommitted changes
+    dirty = check_output(["git", "status", "--porcelain"], cwd=repo_root).splitlines()
+    # Ignore untracked files
+    if any(not line.startswith("?? ") for line in dirty):
+        if strict:
+            info(repo_root, "has uncommitted changes. `git status --porcelain`:")
+            for line in dirty:
+                info("> ", line)
+            raise ValueError(f"{repo_root} has uncommitted changes")
+        version += "-dirty"
+
+    return version
+
+
+def build(
+    repo_root: Path,
+    driver_root: Path,
+    driver: str,
+    target: str,
+    *,
+    ci: bool = False,
+) -> None:
+    version = detect_version(driver_root)
+    (repo_root / "build").mkdir(exist_ok=True)
+
+    # Embed the version in the library
+    prop = "github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion"
+    ldflags = " ".join(
+        [
+            "-s",
+            "-w",
+            f"-X {prop}={version}",
+        ]
+    )
+
+    tags = ["driverlib"]
+    if to_bool(doit.get_var("DEBUG", False)):
+        tags.append("assert")
+
+    tags = ",".join(tags)
+    tags = "-tags=" + tags
+
+    info("Building", target, "version", version)
+
+    env = {}
+
+    if platform.system() == "Darwin":
+        env["CGO_CFLAGS"] = "-mmacosx-version-min=10.12"
+        env["CGO_LDFLAGS"] = "-mmacosx-version-min=10.12"
+
+    if ci and platform.system() == "Linux":
+        env["SOURCE_ROOT"] = str(repo_root)
+        env["ARCH"] = architecture()
+
+        check_call(["go", "mod", "vendor"], cwd=driver_root)
+
+        ldflags += (
+            " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
+        )
+        command = [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "--user",
+            str(os.getuid()),
+            "manylinux",
+            "--",
+            "bash",
+            "-c",
+            f'cd /source/{driver_root.relative_to(repo_root)} && go build -buildmode=c-shared {tags} -o /source/build/{target} -ldflags "{ldflags}" ./pkg',
+        ]
+        check_call(command, cwd=Path(__file__).parent, env=env)
+    else:
+        check_call(
+            [
+                "go",
+                "build",
+                "-buildmode=c-shared",
+                tags,
+                "-o",
+                f"{repo_root / 'build' / target}",
+                "-ldflags",
+                ldflags,
+                "./pkg",
+            ],
+            cwd=driver_root,
+            env=env,
+        )
+
+    output = (repo_root / "build" / target).resolve()
+    output.chmod(0o755)
+    header = output.with_suffix(".h")
+    header.unlink(missing_ok=True)
+
+
+def check_linux(binary: Path) -> None:
+    symbols = check_output(
+        [
+            "nm",
+            "--demangle",
+            "--dynamic",
+            str(binary),
+        ]
+    ).splitlines()
+
+    # TODO(https://github.com/adbc-drivers/dev/issues/36): check exported symbols
+    bad_symbols = []
+    for symbol in symbols:
+        if " T " not in symbol:
+            continue
+        _, _, name = symbol.partition(" T ")
+        if not name.startswith("Adbc"):
+            bad_symbols.append(name)
+    if bad_symbols:
+        raise RuntimeError(
+            f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
+        )
+
+    # Like upstream.  Match manylinux2014's versions.
+    # https://peps.python.org/pep-0599/#the-manylinux2014-policy
+    glibc_max = "2.17"
+    glibcxx_max = "3.14.19"
+
+    for symbol in symbols:
+        if "@GLIBC_" in symbol:
+            version = packaging.version.Version(symbol.partition("@")[2][6:])
+            if version > packaging.version.Version(glibc_max):
+                raise RuntimeError(
+                    f"{symbol} requires too new a glibc (max {glibc_max})"
+                )
+        elif "@GLIBCXX_" in symbol:
+            version = packaging.version.Version(symbol.partition("@")[2][8:])
+            if version > packaging.version.Version(glibcxx_max):
+                raise RuntimeError(
+                    f"{symbol} requires too new a glibcxx (max {glibcxx_max})"
+                )
+
+
+def check_macos(binary: Path) -> None:
+    output = check_output(["otool", "-l", str(binary)]).splitlines()
+    minos = None
+    for line in output:
+        line = line.strip()
+        if not line.startswith("minos"):
+            continue
+        _, _, minos = line.partition(" ")
+        break
+
+    if minos is None:
+        raise RuntimeError("Could not determine minimum macOS version")
+
+    minos = packaging.version.Version(minos)
+    maxos = packaging.version.Version("11.0")
+
+    if minos > maxos:
+        raise RuntimeError(
+            f"{binary} requires macOS {minos} but {maxos} was expected at most"
+        )
+
+
+def check(binary: Path) -> None:
+    if platform.system() == "Linux":
+        check_linux(binary)
+    elif platform.system() == "Darwin":
+        check_macos(binary)
+
+
+def task_build():
+    driver = doit.get_var("DRIVER", "")
+    if not driver:
+        raise ValueError("Must specify DRIVER=driver")
+
+    ci = doit.get_var("CI", False)
+
+    repo_root = Path(".").resolve()
+    driver_root = Path(driver)
+    if driver_root.is_dir():
+        driver_root = driver_root.resolve()
+    elif Path("./go.mod").is_file():
+        # Some repositories will only ever contain a single driver, and so
+        # they live at the root.
+        driver_root = Path(".").resolve()
+
+    # Compute dependencies
+    file_deps = []
+    extensions = [".go", ".c", ".h"]
+    for dirname, _, filenames in driver_root.walk():
+        for filename in filenames:
+            if filename in {"go.mod", "go.sum"}:
+                file_deps.append(Path(dirname) / filename)
+            elif any(filename.endswith(ext) for ext in extensions):
+                file_deps.append(Path(dirname) / filename)
+
+    target = f"libadbc_driver_{driver}.{EXT}"
+
+    return {
+        "actions": [
+            lambda: build(repo_root, driver_root, driver, target, ci=ci),
+        ],
+        "file_dep": [str(p) for p in file_deps],
+        "targets": [repo_root / "build" / target],
+    }
+
+
+def task_check():
+    driver = doit.get_var("DRIVER", "")
+    if not driver:
+        raise ValueError("Must specify DRIVER=driver")
+
+    repo_root = Path(".").resolve()
+    target = repo_root / "build" / f"libadbc_driver_{driver}.{EXT}"
+
+    return {
+        "actions": [
+            lambda: check(target),
+        ],
+        "file_dep": [target],
+        "targets": [],
+    }
+
+
+def main():
+    doit.run(globals())
+
+
+if __name__ == "__main__":
+    main()
