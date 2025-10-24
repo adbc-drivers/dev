@@ -16,15 +16,17 @@
 
 # How to Contribute
 
-## Reporting Issues and Feature Requests
+All contributors are expected to follow the [Code of
+Conduct](https://github.com/adbc-drivers/dev?tab=coc-ov-file#readme).
+
+## Reporting Issues and Making Feature Requests
 
 Please file issues, questions, and feature requests on the GitHub issue
 tracker: https://github.com/adbc-drivers/dev/issues
 
 Potential security vulnerabilities should be reported to
-[security@adbc-drivers.org](mailto:security@adbc-drivers.org) instead.  This
-is a private mailing list.  See
-[SECURITY.md](https://github.com/adbc-drivers/.github/blob/main/SECURITY.md).
+[security@adbc-drivers.org](mailto:security@adbc-drivers.org) instead.  See
+the [Security Policy](https://github.com/adbc-drivers/dev?tab=security-ov-file#readme).
 
 ## Setting Up a Developer Environment
 
@@ -61,8 +63,3 @@ When writing the pull request description:
   above.
 - Make sure the bottom of the description has `Closes #NNN`, `Fixes #NNN`, or
   similar, so that the issue will be linked to your pull request.
-
-## Code of Conduct
-
-This project follows the ADBC Driver Foundry [Code of
-Conduct](https://github.com/adbc-drivers/.github/blob/main/CODE_OF_CONDUCT.md).
