@@ -245,7 +245,7 @@ jobs:
         run: |
           pixi run adbc-make check CI=true VERBOSE=true DRIVER=${{ inputs.driver }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: drivers-${{ matrix.platform }}-${{ matrix.arch }}
           path: "${{ inputs.subdir || '.' }}/build/libadbc_driver_${{ inputs.driver }}.*"
@@ -272,7 +272,7 @@ jobs:
           pixi-version: v0.50.2
           run-install: false
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: "drivers-*"
           path: "~/drivers"
@@ -308,7 +308,7 @@ jobs:
 
           ls ~/packages
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: all-packages
           path: ~/packages
