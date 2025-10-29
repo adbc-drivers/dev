@@ -34,7 +34,7 @@ copyright/license headers are present.
 Add this repository to your `.pre-commit-config.yaml`:
 
 ```yaml
-- repo: git@github.com:adbc-drivers/dev
+- repo: https://github.com/adbc-drivers/dev
   rev: "<latest rev on main>"
   hooks:
   - id: rat
