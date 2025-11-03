@@ -204,9 +204,7 @@ jobs:
       matrix:
         include:
           - { os: Linux, platform: linux, arch: amd64, runner: ubuntu-latest }
-          # NOTE(https://github.com/orgs/community/discussions/148648): this
-          # uses an attached runner for private repos
-          - { os: Linux, platform: linux, arch: arm64, runner: private-ubuntu-24.04-arm }
+          - { os: Linux, platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
           - { os: macOS, platform: macos, arch: arm64, runner: macos-latest }
           - { os: Windows, platform: windows, arch: amd64, runner: windows-latest }
     permissions:
