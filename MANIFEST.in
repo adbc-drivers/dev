@@ -15,3 +15,4 @@
 include adbc_drivers_dev/.env
 include adbc_drivers_dev/compose.yaml
 recursive-include adbc_drivers_dev/compose/ Dockerfile *.ld *.sh
+recursive-include adbc_drivers_dev/templates/ *.yaml
