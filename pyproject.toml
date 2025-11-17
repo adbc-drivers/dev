@@ -18,6 +18,7 @@ version = "0.1"
 
 dependencies = [
   "doit",
+  "jinja2",
   "packaging",
   "platformdirs",
   "pygit2",
@@ -30,6 +31,7 @@ dependencies = [
 pre-commit-copyright = "adbc_drivers_dev.copyright:main"
 pre-commit-rat = "adbc_drivers_dev.rat:main"
 adbc-gen-package = "adbc_drivers_dev.package:main"
+adbc-gen-workflow = "adbc_drivers_dev.workflow:main"
 adbc-make = "adbc_drivers_dev.make:main"
 adbc-release = "adbc_drivers_dev.release:main"
 
