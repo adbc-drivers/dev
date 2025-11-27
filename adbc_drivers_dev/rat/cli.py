@@ -15,7 +15,9 @@
 import argparse
 import fnmatch
 import io
+import re
 import subprocess
+import tarfile
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -81,6 +83,18 @@ def main():
                 if line and not line.startswith("#"):
                     exclusions.append(line)
 
+    # ------------------------------------------------------------
+    # Load the file listing files imported from Apache repos
+    # ------------------------------------------------------------
+    apache_file = root / ".rat-apache"
+    needs_apache_header = set()
+    if apache_file.is_file():
+        with apache_file.open("r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    needs_apache_header.add(line)
+
     with tempfile.TemporaryDirectory() as scratch:
         scratch = Path(scratch).resolve()
         archive = scratch / "rat.tar"
@@ -121,5 +135,62 @@ def main():
                 print("Files without licenses or with unapproved licenses found:")
             unapproved += 1
             print("-", filename)
+
+        missing_copyright = []
+        missing_apache_header = []
+        should_not_have_apache_header = []
+        copyright_re = re.compile(r"Copyright \(c\) [0-9]{4} ADBC Drivers Contributors")
+        header_re = re.compile(
+            r"This file has been modified from its original version, which is under the Apache License: Licensed to the Apache Software Foundation"
+        )
+        sep_re = re.compile(r"[^a-zA-Z0-9,:()]+")
+        with tarfile.open(archive, "r") as tar:
+            for member in tar.getmembers():
+                if not member.isfile():
+                    continue
+
+                with tar.extractfile(member) as f:
+                    lines = []
+                    for _ in range(20):
+                        lines.append(f.readline())
+
+                content = b" ".join(lines).decode("utf-8")
+                content = sep_re.sub(" ", content)
+
+                if not copyright_re.search(content):
+                    if (
+                        not member.name.endswith("LICENSE.txt")
+                        and not member.name.endswith("NOTICE.txt")
+                        and not any(
+                            fnmatch.fnmatch(member.name, exclusion)
+                            for exclusion in exclusions
+                        )
+                    ):
+                        missing_copyright.append(member.name)
+
+                if member.name in needs_apache_header:
+                    if not header_re.search(content):
+                        missing_apache_header.append(member.name)
+                elif header_re.search(content):
+                    should_not_have_apache_header.append(member.name)
+
+        if missing_copyright:
+            print("Files missing ADBC Drivers Contributors copyright header:")
+            for name in missing_copyright:
+                print("-", name)
+
+        if missing_apache_header:
+            print("Files missing 'This file has been modified' header:")
+            for name in missing_apache_header:
+                print("-", name)
+
+        if should_not_have_apache_header:
+            print("Files that should not have 'This file has been modified' header:")
+            for name in should_not_have_apache_header:
+                print("-", name)
+
+        unapproved += len(missing_copyright)
+        unapproved += len(missing_apache_header)
+        unapproved += len(should_not_have_apache_header)
 
     return unapproved
