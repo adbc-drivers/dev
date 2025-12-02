@@ -153,8 +153,12 @@ def main():
                     lines = []
                     for _ in range(20):
                         lines.append(f.readline())
-
-                content = b" ".join(lines).decode("utf-8")
+                try:
+                    content = b" ".join(lines).decode("utf-8")
+                except UnicodeDecodeError:
+                    # decode will fail on non-text files so just use empty
+                    # content so RAT will fail if the file isn't excluded
+                    content = ""
                 content = sep_re.sub(" ", content)
 
                 if not copyright_re.search(content):
