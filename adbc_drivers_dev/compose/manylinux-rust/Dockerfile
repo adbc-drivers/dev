@@ -16,18 +16,14 @@ ARG MANYLINUX
 FROM quay.io/pypa/${MANYLINUX}:latest
 
 RUN ulimit -n 1024 && yum install -y wget && yum clean all
-ENV PATH="/usr/local/go/bin:${PATH}"
+ENV PATH="/usr/local/rust/bin:${PATH}"
 
-ARG GO
+ARG RUST
 ARG TARGETPLATFORM
 
-RUN mkdir -p /.cache/go-build \
-    && chmod 777 /.cache/go-build \
-    && git config --global --add safe.directory /source \
+RUN git config --global --add safe.directory /source \
     && cp /root/.gitconfig /.gitconfig \
     && chmod 777 /.gitconfig
 
-ADD install_go.sh /
-RUN /install_go.sh ${GO} ${TARGETPLATFORM} && rm /install_go.sh
-
-COPY only-export-adbc.ld /only-export-adbc.ld
+ADD install_rust.sh /
+RUN /install_rust.sh ${RUST} ${TARGETPLATFORM} && rm /install_rust.sh
