@@ -62,6 +62,13 @@ def is_verbose() -> bool:
     return to_bool(doit.get_var("VERBOSE", False))
 
 
+def append_flags(env: dict[str, str], var: str, flags: str) -> None:
+    if var in env:
+        env[var] += " " + flags
+    else:
+        env[var] = flags
+
+
 def architecture() -> str:
     match platform.machine():
         case "AMD64":
@@ -230,15 +237,25 @@ def build(
 
     env = {}
 
+    smuggle_vars = ("CGO_CFLAGS", "CGO_LDFLAGS")
+    for var in smuggle_vars:
+        if var in os.environ:
+            env[var] = os.environ[var]
+
     if platform.system() == "Darwin":
-        env["CGO_CFLAGS"] = "-mmacosx-version-min=10.12"
-        env["CGO_LDFLAGS"] = "-mmacosx-version-min=10.12"
+        append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=10.12")
+        append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=10.12")
 
     if ci and platform.system() == "Linux":
         env["SOURCE_ROOT"] = str(repo_root)
         env["ARCH"] = architecture()
 
         check_call(["go", "mod", "vendor"], cwd=driver_root)
+
+        smuggle_env = ""
+        for var in smuggle_vars:
+            if var in env:
+                smuggle_env += f'{var}="{shlex.quote(env[var])}" '
 
         ldflags += (
             " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
@@ -254,7 +271,7 @@ def build(
             "--",
             "bash",
             "-c",
-            f'cd /source/{driver_root.relative_to(repo_root)} && go build -buildmode=c-shared {tags} -o /source/build/{target} -ldflags "{ldflags}" ./pkg',
+            f'cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} go build -buildmode=c-shared {tags} -o /source/build/{target} -ldflags "{ldflags}" ./pkg',
         ]
         check_call(command, cwd=Path(__file__).parent, env=env)
     else:
