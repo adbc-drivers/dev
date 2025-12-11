@@ -243,8 +243,8 @@ def build(
             env[var] = os.environ[var]
 
     if platform.system() == "Darwin":
-        append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=10.12")
-        append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=10.12")
+        append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=11.0")
+        append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=11.0")
 
     if ci and platform.system() == "Linux":
         env["SOURCE_ROOT"] = str(repo_root)
