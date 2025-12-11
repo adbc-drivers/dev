@@ -216,6 +216,13 @@ def build(
     if to_bool(doit.get_var("DEBUG", False)):
         tags.append("assert")
 
+    extra_tags = doit.get_var("BUILD_TAGS", "")
+    if extra_tags:
+        extra_tags = extra_tags.split(",")
+        extra_tags = [tag.strip() for tag in extra_tags]
+        extra_tags = [tag for tag in extra_tags if tag]
+        tags.extend(extra_tags)
+
     tags = ",".join(tags)
     tags = "-tags=" + tags
 
