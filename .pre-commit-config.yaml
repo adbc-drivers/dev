@@ -25,6 +25,7 @@ repos:
   - id: check-case-conflict
   - id: check-executables-have-shebangs
   - id: check-yaml
+    exclude: 'adbc_drivers_dev/templates/.*\.yaml'
   - id: detect-private-key
   - id: end-of-file-fixer
   - id: mixed-line-ending
