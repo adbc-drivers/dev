@@ -82,7 +82,7 @@ jobs:
 <% endif %>
     permissions:
       contents: read
-<% if permissions.id_token %>
+<% if permissions.get("id_token") %>
       id-token: write
 <% endif %>
     steps:
@@ -200,7 +200,7 @@ jobs:
 <% endif %>
     permissions:
       contents: read
-<% if permissions.id_token %>
+<% if permissions.get("id_token") %>
       id-token: write
 <% endif %>
     steps:

@@ -17,6 +17,7 @@
 
 import argparse
 import functools
+import itertools
 import re
 import subprocess
 import sys
@@ -25,20 +26,36 @@ from pathlib import Path
 
 import jinja2
 import packaging.version
-import tomllib
+import tomlkit
+
+DEFAULT_PARAMS = {
+    "driver": "(unknown)",
+    "private": False,
+    "lang": {},
+    "permissions": {},
+    "aws": {},
+    "gcloud": {},
+}
+
+# TOML does not support nulls
+MORE_DEFAULTS = {
+    "environment": None,
+}
 
 
 def write_workflow(
     root: Path, template, filename: str, params: dict[str, typing.Any]
 ) -> None:
-    test = template.render(**params)
+    rendered = template.render(**params)
     sink = root / ".github/workflows" / filename
     with sink.open("w") as f:
-        f.write(test)
+        f.write(rendered)
+        if not rendered.endswith("\n"):
+            f.write("\n")
     print("Wrote", sink)
 
 
-def generate_workflows(args) -> None:
+def generate_workflows(args) -> int:
     env = jinja2.Environment(
         loader=jinja2.PackageLoader("adbc_drivers_dev"),
         autoescape=jinja2.select_autoescape(),
@@ -51,22 +68,25 @@ def generate_workflows(args) -> None:
     )
 
     config_path = args.repository / ".github/workflows/generate.toml"
-    with config_path.open("rb") as f:
-        params = tomllib.load(f)
+    try:
+        with config_path.open("rb") as f:
+            params = tomlkit.load(f).unwrap()
+    except FileNotFoundError:
+        print(f"{config_path} not found.", file=sys.stderr)
 
-    if "aws" not in params:
-        params["aws"] = None
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with config_path.open("w") as f:
+            tomlkit.dump(DEFAULT_PARAMS, f)
+        print("Wrote out defaults, please fill it in.", file=sys.stderr)
 
-    if "gcloud" not in params:
-        params["gcloud"] = None
+        return 1
 
-    if "lang" not in params:
-        params["lang"] = {}
+    for key, value in itertools.chain(DEFAULT_PARAMS.items(), MORE_DEFAULTS.items()):
+        if key not in params:
+            params[key] = value
 
     if params["aws"] or params["gcloud"]:
-        params["permissions"] = {
-            "id_token": True,
-        }
+        params["permissions"]["id_token"] = True
 
     template = env.get_template("test.yaml")
     write_workflow(
@@ -102,6 +122,8 @@ def generate_workflows(args) -> None:
                 **params,
             },
         )
+
+    return 0
 
 
 @functools.cache
@@ -174,8 +196,7 @@ def main():
     args = parser.parse_args()
 
     if args.subcommand == "generate":
-        generate_workflows(args)
-        return 0
+        return generate_workflows(args)
     elif args.subcommand == "update-actions":
         update_actions()
         return 0
