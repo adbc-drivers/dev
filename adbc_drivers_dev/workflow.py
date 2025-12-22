@@ -40,6 +40,7 @@ DEFAULT_PARAMS = {
 # TOML does not support nulls
 MORE_DEFAULTS = {
     "environment": None,
+    "secrets": {},
 }
 
 
@@ -47,7 +48,7 @@ def write_workflow(
     root: Path, template, filename: str, params: dict[str, typing.Any]
 ) -> None:
     rendered = template.render(**params)
-    sink = root / ".github/workflows" / filename
+    sink = root / filename
     with sink.open("w") as f:
         f.write(rendered)
         if not rendered.endswith("\n"):
@@ -88,9 +89,11 @@ def generate_workflows(args) -> int:
     if params["aws"] or params["gcloud"]:
         params["permissions"]["id_token"] = True
 
+    workflows = args.repository / ".github/workflows"
+
     template = env.get_template("test.yaml")
     write_workflow(
-        args.repository,
+        workflows,
         template,
         "go_test.yaml",
         {
@@ -101,7 +104,7 @@ def generate_workflows(args) -> int:
         },
     )
     write_workflow(
-        args.repository,
+        workflows,
         template,
         "go_release.yaml",
         {
@@ -115,7 +118,7 @@ def generate_workflows(args) -> int:
     for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml"]:
         template = env.get_template(dev)
         write_workflow(
-            args.repository,
+            workflows,
             template,
             dev,
             {
@@ -123,7 +126,27 @@ def generate_workflows(args) -> int:
             },
         )
 
-    return 0
+    template = env.get_template("pixi.toml")
+
+    retcode = 0
+    for lang, enabled in params["lang"].items():
+        if not enabled:
+            continue
+        write_workflow(
+            args.repository / lang,
+            template,
+            "pixi.toml",
+            {
+                **params,
+            },
+        )
+
+        license_template = args.repository / lang / "license.tpl"
+        if not license_template.is_file():
+            print(f"Missing {license_template}", file=sys.stderr)
+            retcode = 1
+
+    return retcode
 
 
 @functools.cache
@@ -173,9 +196,12 @@ def update_actions() -> None:
             def replace_action(match: re.Match[str]) -> str:
                 latest = latest_action_version(match.group(1))
 
-                print(
-                    f"  Updating {match.group(1)} from {match.group(2)} to {latest[2]} ({latest[1]})"
-                )
+                if match.group(2) == latest[2]:
+                    print(f"  {match.group(1)} already at {latest[2]} ({latest[1]})")
+                else:
+                    print(
+                        f"  {match.group(1)} updated from {match.group(2)} to {latest[2]} ({latest[1]})"
+                    )
                 return f"uses: {match.group(1)}@{latest[2]}  # {latest[1]}"
 
             new_content = action_re.sub(replace_action, content)

@@ -13,4 +13,5 @@
 # limitations under the License.
 
 .github/workflows/dev_issues.yaml
+adbc_drivers_dev/templates/dev_issues.yaml
 adbc_drivers_dev/title_check.py

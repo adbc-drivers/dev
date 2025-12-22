@@ -45,7 +45,6 @@ jobs:
   pr_standard:
     name: "Check PR"
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
 
     steps:
 <% if driver == "dev" %>
