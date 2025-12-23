@@ -59,7 +59,7 @@ def to_bool(value: str | bool) -> bool:
 
 
 def is_verbose() -> bool:
-    return to_bool(doit.get_var("VERBOSE", False))
+    return to_bool(get_var("VERBOSE", "False"))
 
 
 def append_flags(env: dict[str, str], var: str, flags: str) -> None:
@@ -198,6 +198,14 @@ def detect_version(
     return version
 
 
+def get_var(name: str, default: str) -> str:
+    value = os.environ.get(name)
+    if value is not None:
+        return value
+    value = doit.get_var(name, default)
+    return value
+
+
 def build(
     repo_root: Path,
     driver_root: Path,
@@ -220,10 +228,10 @@ def build(
     )
 
     tags = ["driverlib"]
-    if to_bool(doit.get_var("DEBUG", False)):
+    if to_bool(get_var("DEBUG", "False")):
         tags.append("assert")
 
-    extra_tags = doit.get_var("BUILD_TAGS", "")
+    extra_tags = get_var("BUILD_TAGS", "")
     if extra_tags:
         extra_tags = extra_tags.split(",")
         extra_tags = [tag.strip() for tag in extra_tags]
@@ -370,11 +378,11 @@ def check(binary: Path) -> None:
 
 
 def task_build():
-    driver = doit.get_var("DRIVER", "")
+    driver = get_var("DRIVER", "")
     if not driver:
         raise ValueError("Must specify DRIVER=driver")
 
-    ci = doit.get_var("CI", False)
+    ci = get_var("CI", False)
 
     repo_root = Path(".").resolve()
     driver_root = Path(driver)
@@ -407,7 +415,7 @@ def task_build():
 
 
 def task_check():
-    driver = doit.get_var("DRIVER", "")
+    driver = get_var("DRIVER", "")
     if not driver:
         raise ValueError("Must specify DRIVER=driver")
 
