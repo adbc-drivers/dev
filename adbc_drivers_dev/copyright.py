@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import argparse
-import datetime
 import fnmatch
 import re
 import subprocess
@@ -31,8 +30,7 @@ def main():
     args = parser.parse_args()
     root = args.root.resolve()
 
-    year = datetime.datetime.now().year
-    pattern = rf"Copyright \(c\) ([0-9]+-)?{year} Columnar Technologies Inc\. +All rights reserved\."
+    pattern = r"Copyright \(c\) ([0-9]{4}-)?[0-9]{4} Columnar Technologies Inc\. +All rights reserved\."
     header = re.compile(pattern.encode())
 
     # ------------------------------------------------------------
