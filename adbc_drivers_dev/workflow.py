@@ -91,29 +91,30 @@ def generate_workflows(args) -> int:
 
     workflows = args.repository / ".github/workflows"
 
-    template = env.get_template("test.yaml")
-    write_workflow(
-        workflows,
-        template,
-        "go_test.yaml",
-        {
-            **params,
-            "pull_request_trigger_paths": [".github/workflows/go_test.yaml"],
-            "release": False,
-            "workflow_name": "Test",
-        },
-    )
-    write_workflow(
-        workflows,
-        template,
-        "go_release.yaml",
-        {
-            **params,
-            "pull_request_trigger_paths": [".github/workflows/go_release.yaml"],
-            "release": True,
-            "workflow_name": "Release",
-        },
-    )
+    if params["lang"].get("go"):
+        template = env.get_template("test.yaml")
+        write_workflow(
+            workflows,
+            template,
+            "go_test.yaml",
+            {
+                **params,
+                "pull_request_trigger_paths": [".github/workflows/go_test.yaml"],
+                "release": False,
+                "workflow_name": "Test",
+            },
+        )
+        write_workflow(
+            workflows,
+            template,
+            "go_release.yaml",
+            {
+                **params,
+                "pull_request_trigger_paths": [".github/workflows/go_release.yaml"],
+                "release": True,
+                "workflow_name": "Release",
+            },
+        )
 
     for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml"]:
         template = env.get_template(dev)
