@@ -40,7 +40,6 @@ DEFAULT_PARAMS = {
 # TOML does not support nulls
 MORE_DEFAULTS = {
     "environment": None,
-    "secrets": {},
 }
 
 
@@ -91,6 +90,28 @@ def generate_workflows(args) -> int:
 
     workflows = args.repository / ".github/workflows"
 
+    secrets = {
+        "build:release": {},
+        "test": {},
+        "validate": {},
+    }
+
+    if "secrets" in params:
+        defined_secrets = params.pop("secrets")
+
+        for secret, secret_value in defined_secrets.items():
+            if isinstance(secret_value, str):
+                for context in secrets:
+                    secrets[context][secret] = secret_value
+            elif isinstance(secret_value, dict):
+                name = secret_value["secret"]
+                for scope in secret_value.get("contexts", secrets.keys()):
+                    secrets[scope][secret] = name
+            else:
+                raise TypeError(
+                    f"Secret {secret} must be a string or mapping, not {type(secret_value)}"
+                )
+
     if params["lang"].get("go"):
         template = env.get_template("test.yaml")
         write_workflow(
@@ -99,6 +120,7 @@ def generate_workflows(args) -> int:
             "go_test.yaml",
             {
                 **params,
+                "secrets": secrets,
                 "pull_request_trigger_paths": [".github/workflows/go_test.yaml"],
                 "release": False,
                 "workflow_name": "Test",
@@ -110,6 +132,7 @@ def generate_workflows(args) -> int:
             "go_release.yaml",
             {
                 **params,
+                "secrets": secrets,
                 "pull_request_trigger_paths": [".github/workflows/go_release.yaml"],
                 "release": True,
                 "workflow_name": "Release",
