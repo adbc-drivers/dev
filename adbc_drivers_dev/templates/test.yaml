@@ -273,6 +273,12 @@ jobs:
 
       - name: Validate
         if: runner.os == 'Linux'
+<% if secrets["validate"] %>
+        env:
+<% for name, val in secrets["validate"].items() %>
+          <{name}>: ${{ secrets.<{val}> }}
+<% endfor %>
+<% endif %>
         working-directory: go
         run: |
           set -a
@@ -361,9 +367,9 @@ jobs:
 
       - name: Build Library
         working-directory: go
-<% if secrets and "build" in secrets %>
+<% if secrets["build:release"] %>
         env:
-<% for name, val in secrets["build"].items() %>
+<% for name, val in secrets["build:release"].items() %>
           <{name}>: ${{ secrets.<{val}> }}
 <% endfor %>
 <% endif %>
