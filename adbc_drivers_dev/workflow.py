@@ -139,7 +139,7 @@ def generate_workflows(args) -> int:
             },
         )
 
-    for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml"]:
+    for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml", "dev_daily.yaml"]:
         template = env.get_template(dev)
         write_workflow(
             workflows,
