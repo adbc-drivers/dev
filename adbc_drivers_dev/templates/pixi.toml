@@ -39,11 +39,9 @@ gendocs = "python -m validation.tests.generate_documentation"
 
 [dependencies]
 python = ">=3.13.5,<3.14"
-<% if "extra-dependencies" in validation %>
-<% for key, value in validation["extra-dependencies"].items() %>
+<% for key, value in validation["extra_dependencies"].items() %>
 <{key}> = "<{value}>"
 <% endfor %>
-<% endif %>
 
 [pypi-dependencies]
 adbc-drivers-dev = { git = "https://github.com/adbc-drivers/dev" }

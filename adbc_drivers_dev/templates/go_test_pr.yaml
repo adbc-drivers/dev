@@ -1,3 +1,6 @@
+<% if private %>
+# Copyright (c) 2025 Columnar Technologies Inc.  All rights reserved.
+<% else %>
 # Copyright (c) 2025 ADBC Drivers Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+<% endif %>
 
 # !!!! AUTO-GENERATED FILE.  DO NOT EDIT. !!!!
 # USE adbc-gen-workflow (see adbc-drivers/dev) TO UPDATE THIS FILE.
@@ -41,7 +45,11 @@ defaults:
 
 permissions:
   contents: read
+<% if permissions.get("id_token") %>
+  id-token: write
+<% endif %>
   packages: read
+  pull-requests: read
 
 jobs:
   setup:
@@ -83,6 +91,7 @@ jobs:
       - setup
       - test
     permissions:
+      actions: read
       pull-requests: write
     steps:
       - id: get_run
