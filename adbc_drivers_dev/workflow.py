@@ -40,6 +40,7 @@ DEFAULT_PARAMS = {
 # TOML does not support nulls
 MORE_DEFAULTS = {
     "environment": None,
+    "validation": {"extra-dependencies": {}},
 }
 
 
@@ -112,6 +113,12 @@ def generate_workflows(args) -> int:
                     f"Secret {secret} must be a string or mapping, not {type(secret_value)}"
                 )
 
+    all_secrets = {}
+    for context_secrets in secrets.values():
+        all_secrets.update(context_secrets)
+    secrets["all"] = all_secrets
+    # TODO: secrets["all"] should contain GCloud, AWS secrets
+
     if params["lang"].get("go"):
         template = env.get_template("test.yaml")
         write_workflow(
@@ -138,6 +145,17 @@ def generate_workflows(args) -> int:
                 "workflow_name": "Release",
             },
         )
+        template = env.get_template("go_test_pr.yaml")
+        if secrets["all"]:
+            write_workflow(
+                workflows,
+                template,
+                "go_test_pr.yaml",
+                {
+                    **params,
+                    "secrets": secrets,
+                },
+            )
 
     for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml"]:
         template = env.get_template(dev)
