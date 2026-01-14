@@ -58,11 +58,11 @@ on:
   workflow_call:
     inputs:
       repository:
-        description: "The repository to checkout"
+        description: "The repository to checkout (in owner/repo short format)"
         required: true
         type: string
-      commit:
-        description: "The commit to checkout"
+      ref:
+        description: "The ref to checkout"
         required: true
         type: string
     secrets:
@@ -128,7 +128,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.commit }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
 <% endif %>
@@ -263,7 +263,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.commit }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
 <% endif %>
