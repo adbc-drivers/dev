@@ -408,7 +408,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.commit }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
 <% endif %>
@@ -484,7 +484,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.commit }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
 <% endif %>
@@ -576,7 +576,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.commit }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
 <% endif %>

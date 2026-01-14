@@ -27,11 +27,11 @@ on:
   workflow_dispatch:
     inputs:
       pr:
-        description: "The PR to test"
+        description: "The ID of the PR to test (e.g. 42)"
         required: true
         type: string
-      commit:
-        description: "The commit to checkout"
+      ref:
+        description: "The commit/ref to checkout"
         required: true
         type: string
 
@@ -76,7 +76,7 @@ jobs:
       - setup
     with:
       repository: ${{ needs.setup.outputs.repository }}
-      commit: ${{ inputs.commit }}
+      ref: ${{ inputs.ref }}
     secrets:
       # https://github.com/orgs/community/discussions/25238#discussioncomment-3247035
 <% for name, val in secrets["all"].items() %>
