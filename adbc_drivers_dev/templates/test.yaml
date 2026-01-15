@@ -182,6 +182,12 @@ jobs:
 
       - name: Test
         if: runner.os == 'Linux'
+<% if secrets["test"] %>
+        env:
+<% for name, val in secrets["test"].items() %>
+          <{name}>: ${{ secrets.<{val}> }}
+<% endfor %>
+<% endif %>
         working-directory: go
         run: |
           set -a
@@ -192,11 +198,6 @@ jobs:
             source .env.ci
           fi
           set +a
-
-          if [[ -n "${{ secrets.environment }}" ]]; then
-            echo "Loading secret environment variables"
-            eval "${{ secrets.environment }}"
-          fi
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
@@ -341,11 +342,6 @@ jobs:
             source .env.ci
           fi
           set +a
-
-          if [[ -n "${{ secrets.environment }}" ]]; then
-            echo "Loading secret environment variables"
-            eval "${{ secrets.environment }}"
-          fi
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
