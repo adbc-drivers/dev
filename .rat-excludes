@@ -15,3 +15,4 @@
 .github/pull_request_template.md
 go.sum
 pixi.lock
+schema/generate-schema.json

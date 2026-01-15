@@ -17,6 +17,7 @@
 
 import argparse
 import functools
+import json
 import re
 import subprocess
 import sys
@@ -27,126 +28,7 @@ import jinja2
 import packaging.version
 import tomlkit
 
-
-def _require_bool(value: typing.Any, path: list[str]) -> bool:
-    if not isinstance(value, bool):
-        raise TypeError(f"Expected bool at `{'.'.join(path)}`, got {type(value)}")
-    return value
-
-
-def _require_str_optional_nonempty(value: typing.Any, path: list[str]) -> str:
-    if value is None:
-        return value
-    if not isinstance(value, str):
-        raise TypeError(f"Expected bool at `{'.'.join(path)}`, got {type(value)}")
-    if not value.strip():
-        raise ValueError(f"Expected non-empty string at `{'.'.join(path)}`")
-    return value
-
-
-def _unknown_keys(path, keys) -> Exception:
-    if path:
-        return ValueError(f"Unknown keys in `{'.'.join(path)}`: {', '.join(keys)}")
-    return ValueError(f"Unknown keys at root: {', '.join(keys)}")
-
-
-class Params:
-    def __init__(self, raw: dict[str, typing.Any]) -> None:
-        self.driver: str = raw.pop("driver", "(unknown)")
-        self.environment: str | None = _require_str_optional_nonempty(
-            raw.pop("environment", None), ["environment"]
-        )
-        self.private: bool = _require_bool(raw.pop("private", False), ["private"])
-        self.lang: dict[str, bool] = {}
-        for lang, enabled in raw.pop("lang", {}).items():
-            self.lang[lang] = _require_bool(enabled, ["lang", lang])
-
-        self.secrets: dict[str, dict[str, str]] = {
-            "build:release": {},
-            "test": {},
-            "validate": {},
-        }
-        for secret, secret_value in raw.pop("secrets", {}).items():
-            if isinstance(secret_value, str):
-                for context in self.secrets:
-                    self.secrets[context][secret] = secret_value
-            elif isinstance(secret_value, dict):
-                name = secret_value.pop("secret")
-                for scope in secret_value.pop("contexts", self.secrets.keys()):
-                    self.secrets[scope][secret] = name
-
-                if secret_value:
-                    raise _unknown_keys(["secrets", secret], secret_value.keys())
-            else:
-                raise TypeError(
-                    f"Secret {secret} must be a string or mapping, not {type(secret_value)}"
-                )
-        all_secrets = {}
-        for context_secrets in self.secrets.values():
-            all_secrets.update(context_secrets)
-        self.secrets["all"] = all_secrets
-
-        self.permissions: dict[str, bool] = {}
-
-        self.aws = {}
-        if aws := raw.pop("aws", {}):
-            self.secrets["all"]["AWS_ROLE"] = "AWS_ROLE"
-            self.secrets["all"]["AWS_ROLE_SESSION_NAME"] = "AWS_ROLE_SESSION_NAME"
-            self.aws["region"] = aws.pop("region")
-            if aws:
-                raise _unknown_keys(["aws"], aws.keys())
-
-        self.gcloud = _require_bool(raw.pop("gcloud", False), ["gcloud"])
-        if self.gcloud:
-            self.secrets["all"]["GCLOUD_SERVICE_ACCOUNT"] = "GCLOUD_SERVICE_ACCOUNT"
-            self.secrets["all"]["GCLOUD_WORKLOAD_IDENTITY_PROVIDER"] = (
-                "GCLOUD_WORKLOAD_IDENTITY_PROVIDER"
-            )
-
-        if self.aws or self.gcloud:
-            # TODO: it might be better to have this be "write" but for now we
-            # don't need the flexibility
-            self.permissions["id_token"] = True
-
-        self.validation = {
-            "extra_dependencies": {},
-        }
-        if validation := raw.pop("validation", {}):
-            if extra_deps := validation.pop("extra-dependencies", {}):
-                self.validation["extra_dependencies"] = extra_deps
-
-            if validation:
-                raise ValueError(
-                    f"Unknown validation parameters: {', '.join(validation.keys())}"
-                )
-
-        if raw:
-            raise ValueError(f"Unknown parameters: {', '.join(raw.keys())}")
-
-    def to_dict(self) -> dict[str, typing.Any]:
-        return {
-            "driver": self.driver,
-            "environment": self.environment,
-            "private": self.private,
-            "lang": self.lang,
-            "secrets": self.secrets,
-            "permissions": self.permissions,
-            "aws": self.aws,
-            "gcloud": self.gcloud,
-            "validation": self.validation,
-        }
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Params):
-            return NotImplemented
-        return self.to_dict() == other.to_dict()
-
-
-DEFAULT_PARAMS = {
-    "driver": "(unknown)",
-    "private": False,
-    "lang": {},
-}
+from .generate import GenerateConfig
 
 
 def write_workflow(
@@ -159,6 +41,17 @@ def write_workflow(
         if not rendered.endswith("\n"):
             f.write("\n")
     print("Wrote", sink)
+
+
+def generate_schema(args) -> int:
+    """Generate JSON schema from Pydantic models."""
+    schema = GenerateConfig.model_json_schema(mode="validation")
+    output_path = Path(__file__).parent.parent / "schema" / "generate-schema.json"
+    with output_path.open("w") as f:
+        json.dump(schema, f, indent=2)
+        f.write("\n")  # trailing newlines are nice
+    print(f"Wrote schema to {output_path}")
+    return 0
 
 
 def generate_workflows(args) -> int:
@@ -182,12 +75,22 @@ def generate_workflows(args) -> int:
 
         config_path.parent.mkdir(parents=True, exist_ok=True)
         with config_path.open("w") as f:
-            tomlkit.dump(DEFAULT_PARAMS, f)
+            # Add schema directive for tombi validation
+            # TODO: Before merge: Update to use final URL
+            f.write("#:schema ../../schema/generate-schema.json\n\n")
+            tomlkit.dump(
+                GenerateConfig().model_dump(
+                    mode="json",
+                    by_alias=True,
+                    exclude_none=True,
+                ),
+                f,
+            )
         print("Wrote out defaults, please fill it in.", file=sys.stderr)
 
         return 1
 
-    params = Params(params)
+    params = GenerateConfig.model_validate(params)
 
     workflows = args.repository / ".github/workflows"
 
@@ -216,7 +119,7 @@ def generate_workflows(args) -> int:
             },
         )
         template = env.get_template("go_test_pr.yaml")
-        if params.secrets["all"]:
+        if params._processed_secrets["all"]:
             write_workflow(
                 workflows,
                 template,
@@ -328,12 +231,15 @@ def main():
     generate = subcommand.add_parser("generate")
     generate.add_argument("repository", type=Path)
 
+    subcommand.add_parser("generate-schema")
     subcommand.add_parser("update-actions")
 
     args = parser.parse_args()
 
     if args.subcommand == "generate":
         return generate_workflows(args)
+    elif args.subcommand == "generate-schema":
+        return generate_schema(args)
     elif args.subcommand == "update-actions":
         update_actions()
         return 0
