@@ -54,8 +54,26 @@ on:
 <% endfor %>
 <% endif %>
 
+<% if not release and secrets["all"] %>
+  workflow_call:
+    inputs:
+      repository:
+        description: "The repository to checkout (in owner/repo short format)"
+        required: true
+        type: string
+      ref:
+        description: "The ref to checkout"
+        required: true
+        type: string
+    secrets:
+<% for name, val in secrets["all"].items() %>
+      <{val}>:
+        required: true
+<% endfor %>
+<% endif %>
+<% if release %>
   workflow_dispatch: {}
-
+<% endif %>
 
 concurrency:
   # Must share concurrency group with release workflow since it also builds/tests
@@ -93,12 +111,29 @@ jobs:
           # https://github.com/actions/runner-images/issues/2840
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+<% if release or not secrets["all"] %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+<% else %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
+      - name: "checkout remote"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+<% endif %>
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
@@ -147,6 +182,12 @@ jobs:
 
       - name: Test
         if: runner.os == 'Linux'
+<% if secrets["test"] %>
+        env:
+<% for name, val in secrets["test"].items() %>
+          <{name}>: ${{ secrets.<{val}> }}
+<% endfor %>
+<% endif %>
         working-directory: go
         run: |
           set -a
@@ -157,11 +198,6 @@ jobs:
             source .env.ci
           fi
           set +a
-
-          if [[ -n "${{ secrets.environment }}" ]]; then
-            echo "Loading secret environment variables"
-            eval "${{ secrets.environment }}"
-          fi
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
@@ -211,12 +247,29 @@ jobs:
           # https://github.com/actions/runner-images/issues/2840
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+<% if release or not secrets["all"] %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+<% else %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
+      - name: "checkout remote"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+<% endif %>
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
@@ -290,11 +343,6 @@ jobs:
           fi
           set +a
 
-          if [[ -n "${{ secrets.environment }}" ]]; then
-            echo "Loading secret environment variables"
-            eval "${{ secrets.environment }}"
-          fi
-
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
             ./ci/scripts/pre-test.sh
@@ -339,12 +387,29 @@ jobs:
       packages: read
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+<% if release or not secrets["all"] %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+<% else %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
+      - name: "checkout remote"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+<% endif %>
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
@@ -398,12 +463,29 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+<% if release or not secrets["all"] %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+<% else %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
+      - name: "checkout remote"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+<% endif %>
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           check-latest: true
           go-version: "stable"
@@ -473,12 +555,29 @@ jobs:
 <% endif %>
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+<% if release or not secrets["all"] %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+<% else %>
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
+      - name: "checkout remote"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+<% endif %>
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           check-latest: true
           go-version: "stable"

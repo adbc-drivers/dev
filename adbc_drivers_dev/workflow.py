@@ -17,7 +17,6 @@
 
 import argparse
 import functools
-import itertools
 import re
 import subprocess
 import sys
@@ -28,18 +27,125 @@ import jinja2
 import packaging.version
 import tomlkit
 
+
+def _require_bool(value: typing.Any, path: list[str]) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"Expected bool at `{'.'.join(path)}`, got {type(value)}")
+    return value
+
+
+def _require_str_optional_nonempty(value: typing.Any, path: list[str]) -> str:
+    if value is None:
+        return value
+    if not isinstance(value, str):
+        raise TypeError(f"Expected bool at `{'.'.join(path)}`, got {type(value)}")
+    if not value.strip():
+        raise ValueError(f"Expected non-empty string at `{'.'.join(path)}`")
+    return value
+
+
+def _unknown_keys(path, keys) -> Exception:
+    if path:
+        return ValueError(f"Unknown keys in `{'.'.join(path)}`: {', '.join(keys)}")
+    return ValueError(f"Unknown keys at root: {', '.join(keys)}")
+
+
+class Params:
+    def __init__(self, raw: dict[str, typing.Any]) -> None:
+        self.driver: str = raw.pop("driver", "(unknown)")
+        self.environment: str | None = _require_str_optional_nonempty(
+            raw.pop("environment", None), ["environment"]
+        )
+        self.private: bool = _require_bool(raw.pop("private", False), ["private"])
+        self.lang: dict[str, bool] = {}
+        for lang, enabled in raw.pop("lang", {}).items():
+            self.lang[lang] = _require_bool(enabled, ["lang", lang])
+
+        self.secrets: dict[str, dict[str, str]] = {
+            "build:release": {},
+            "test": {},
+            "validate": {},
+        }
+        for secret, secret_value in raw.pop("secrets", {}).items():
+            if isinstance(secret_value, str):
+                for context in self.secrets:
+                    self.secrets[context][secret] = secret_value
+            elif isinstance(secret_value, dict):
+                name = secret_value.pop("secret")
+                for scope in secret_value.pop("contexts", self.secrets.keys()):
+                    self.secrets[scope][secret] = name
+
+                if secret_value:
+                    raise _unknown_keys(["secrets", secret], secret_value.keys())
+            else:
+                raise TypeError(
+                    f"Secret {secret} must be a string or mapping, not {type(secret_value)}"
+                )
+        all_secrets = {}
+        for context_secrets in self.secrets.values():
+            all_secrets.update(context_secrets)
+        self.secrets["all"] = all_secrets
+
+        self.permissions: dict[str, bool] = {}
+
+        self.aws = {}
+        if aws := raw.pop("aws", {}):
+            self.secrets["all"]["AWS_ROLE"] = "AWS_ROLE"
+            self.secrets["all"]["AWS_ROLE_SESSION_NAME"] = "AWS_ROLE_SESSION_NAME"
+            self.aws["region"] = aws.pop("region")
+            if aws:
+                raise _unknown_keys(["aws"], aws.keys())
+
+        self.gcloud = _require_bool(raw.pop("gcloud", False), ["gcloud"])
+        if self.gcloud:
+            self.secrets["all"]["GCLOUD_SERVICE_ACCOUNT"] = "GCLOUD_SERVICE_ACCOUNT"
+            self.secrets["all"]["GCLOUD_WORKLOAD_IDENTITY_PROVIDER"] = (
+                "GCLOUD_WORKLOAD_IDENTITY_PROVIDER"
+            )
+
+        if self.aws or self.gcloud:
+            # TODO: it might be better to have this be "write" but for now we
+            # don't need the flexibility
+            self.permissions["id_token"] = True
+
+        self.validation = {
+            "extra_dependencies": {},
+        }
+        if validation := raw.pop("validation", {}):
+            if extra_deps := validation.pop("extra-dependencies", {}):
+                self.validation["extra_dependencies"] = extra_deps
+
+            if validation:
+                raise ValueError(
+                    f"Unknown validation parameters: {', '.join(validation.keys())}"
+                )
+
+        if raw:
+            raise ValueError(f"Unknown parameters: {', '.join(raw.keys())}")
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        return {
+            "driver": self.driver,
+            "environment": self.environment,
+            "private": self.private,
+            "lang": self.lang,
+            "secrets": self.secrets,
+            "permissions": self.permissions,
+            "aws": self.aws,
+            "gcloud": self.gcloud,
+            "validation": self.validation,
+        }
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Params):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
+
+
 DEFAULT_PARAMS = {
     "driver": "(unknown)",
     "private": False,
     "lang": {},
-    "permissions": {},
-    "aws": {},
-    "gcloud": {},
-}
-
-# TOML does not support nulls
-MORE_DEFAULTS = {
-    "environment": None,
 }
 
 
@@ -81,46 +187,18 @@ def generate_workflows(args) -> int:
 
         return 1
 
-    for key, value in itertools.chain(DEFAULT_PARAMS.items(), MORE_DEFAULTS.items()):
-        if key not in params:
-            params[key] = value
-
-    if params["aws"] or params["gcloud"]:
-        params["permissions"]["id_token"] = True
+    params = Params(params)
 
     workflows = args.repository / ".github/workflows"
 
-    secrets = {
-        "build:release": {},
-        "test": {},
-        "validate": {},
-    }
-
-    if "secrets" in params:
-        defined_secrets = params.pop("secrets")
-
-        for secret, secret_value in defined_secrets.items():
-            if isinstance(secret_value, str):
-                for context in secrets:
-                    secrets[context][secret] = secret_value
-            elif isinstance(secret_value, dict):
-                name = secret_value["secret"]
-                for scope in secret_value.get("contexts", secrets.keys()):
-                    secrets[scope][secret] = name
-            else:
-                raise TypeError(
-                    f"Secret {secret} must be a string or mapping, not {type(secret_value)}"
-                )
-
-    if params["lang"].get("go"):
+    if params.lang.get("go"):
         template = env.get_template("test.yaml")
         write_workflow(
             workflows,
             template,
             "go_test.yaml",
             {
-                **params,
-                "secrets": secrets,
+                **params.to_dict(),
                 "pull_request_trigger_paths": [".github/workflows/go_test.yaml"],
                 "release": False,
                 "workflow_name": "Test",
@@ -131,13 +209,22 @@ def generate_workflows(args) -> int:
             template,
             "go_release.yaml",
             {
-                **params,
-                "secrets": secrets,
+                **params.to_dict(),
                 "pull_request_trigger_paths": [".github/workflows/go_release.yaml"],
                 "release": True,
                 "workflow_name": "Release",
             },
         )
+        template = env.get_template("go_test_pr.yaml")
+        if params.secrets["all"]:
+            write_workflow(
+                workflows,
+                template,
+                "go_test_pr.yaml",
+                {
+                    **params.to_dict(),
+                },
+            )
 
     for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml"]:
         template = env.get_template(dev)
@@ -146,14 +233,14 @@ def generate_workflows(args) -> int:
             template,
             dev,
             {
-                **params,
+                **params.to_dict(),
             },
         )
 
     template = env.get_template("pixi.toml")
 
     retcode = 0
-    for lang, enabled in params["lang"].items():
+    for lang, enabled in params.lang.items():
         if not enabled:
             continue
         write_workflow(
@@ -161,7 +248,7 @@ def generate_workflows(args) -> int:
             template,
             "pixi.toml",
             {
-                **params,
+                **params.to_dict(),
             },
         )
 
