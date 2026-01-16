@@ -76,7 +76,9 @@ def generate_workflows(args) -> int:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         with config_path.open("w") as f:
             # Add schema directive for tombi validation
-            f.write("#:schema https://raw.githubusercontent.com/adbc-drivers/dev/refs/heads/main/schema/generate-schema.json\n\n")
+            f.write(
+                "#:schema https://raw.githubusercontent.com/adbc-drivers/dev/refs/heads/main/schema/generate-schema.json\n\n"
+            )
             tomlkit.dump(
                 GenerateConfig().model_dump(
                     mode="json",
