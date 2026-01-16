@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_valid
 WorkflowContext = typing.Literal["build:release", "test", "validate"]
 WORKFLOW_CONTEXTS: tuple[WorkflowContext, ...] = ("build:release", "test", "validate")
 
+
 class SecretConfigDict(BaseModel):
     """Secret configuration with explicit secret name and contexts."""
 
@@ -48,7 +49,11 @@ class ValidationConfig(BaseModel):
     """Configuration for validation workflows."""
 
     # validate_by_{name,alias} are to let us map "extra_dependencies" to "extra-dependencies"
-    model_config = {"extra": "forbid", "validate_by_name": True, "validate_by_alias": True}
+    model_config = {
+        "extra": "forbid",
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
 
     extra_dependencies: dict[str, typing.Any] = Field(
         default_factory=dict,

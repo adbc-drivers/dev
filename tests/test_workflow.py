@@ -200,22 +200,21 @@ def test_model_unknown() -> None:
 
 
 def test_validation_config_alias() -> None:
-    config = GenerateConfig.model_validate({
-        "validation": {"extra-dependencies": {"pytest": "^7.0", "black": "*"}}
-    })
+    config = GenerateConfig.model_validate(
+        {"validation": {"extra-dependencies": {"pytest": "^7.0", "black": "*"}}}
+    )
     assert config.validation.extra_dependencies == {"pytest": "^7.0", "black": "*"}
 
-    config = GenerateConfig.model_validate({
-        "validation": {"extra_dependencies": {"mypy": "^1.0"}}
-    })
+    config = GenerateConfig.model_validate(
+        {"validation": {"extra_dependencies": {"mypy": "^1.0"}}}
+    )
     assert config.validation.extra_dependencies == {"mypy": "^1.0"}
 
 
 def test_params_aws_and_gcloud() -> None:
-    config = GenerateConfig.model_validate({
-        "aws": {"region": "us-west-2"},
-        "gcloud": True
-    })
+    config = GenerateConfig.model_validate(
+        {"aws": {"region": "us-west-2"}, "gcloud": True}
+    )
     assert config.aws.region == "us-west-2"
     assert config.gcloud is True
     assert config._permissions == {"id_token": True}
