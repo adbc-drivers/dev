@@ -116,8 +116,7 @@ jobs:
 
       - uses: prefix-dev/setup-pixi@82d477f15f3a381dbcc8adc1206ce643fe110fb7  # v0.9.3
         with:
-          pixi-version: v0.50.2
-          run-install: false
+          pixi-version: v0.62.2
 
       - name: AWS Login
         if: inputs.aws_region != ''
