@@ -21,6 +21,7 @@ dependencies = [
   "jinja2",
   "packaging",
   "platformdirs",
+  "pydantic>=2.0",
   "pygit2",
   "requests",
   "ruamel.yaml>=0.18.11,<0.19",

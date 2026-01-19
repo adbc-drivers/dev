@@ -1,0 +1,140 @@
+{
+  "$defs": {
+    "AwsConfig": {
+      "additionalProperties": false,
+      "description": "AWS authentication configuration.",
+      "properties": {
+        "region": {
+          "description": "AWS region to use for authentication (e.g., us-west-2, us-east-1)",
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region"
+      ],
+      "title": "AwsConfig",
+      "type": "object"
+    },
+    "SecretConfigDict": {
+      "additionalProperties": false,
+      "description": "Secret configuration with explicit secret name and contexts.",
+      "properties": {
+        "secret": {
+          "description": "The name of the GitHub secret to use for this secret variable",
+          "title": "Secret",
+          "type": "string"
+        },
+        "contexts": {
+          "description": "Workflow contexts where this secret should be available",
+          "items": {
+            "enum": [
+              "build:release",
+              "test",
+              "validate"
+            ],
+            "type": "string"
+          },
+          "title": "Contexts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "secret"
+      ],
+      "title": "SecretConfigDict",
+      "type": "object"
+    },
+    "ValidationConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for validation workflows.",
+      "properties": {
+        "extra-dependencies": {
+          "additionalProperties": true,
+          "description": "Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:\n\n[validation.extra-dependencies]\npytest = \"^7.0\"\nblack = \"*\"",
+          "title": "Extra-Dependencies",
+          "type": "object"
+        }
+      },
+      "title": "ValidationConfig",
+      "type": "object"
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "You can validate your generate.toml against this schema with tools like tombi (https://tombi-toml.github.io/tombi/docs/linter). Requires placing a `#:schema` directive at the top of your generate.toml file.",
+  "properties": {
+    "driver": {
+      "default": "(unknown)",
+      "description": "Driver name. Should be lowercase (e.g., postgresql, sqlite)",
+      "title": "Driver",
+      "type": "string"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of a GitHub Actions Environment to use when including secrets in workflows",
+      "title": "Environment"
+    },
+    "private": {
+      "default": false,
+      "description": "Whether the driver is private. Most drivers will be non-private.",
+      "title": "Private",
+      "type": "boolean"
+    },
+    "lang": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "description": "Programming languages to enable workflows for. Only go is really supported right now. Keys should be lowercase. Set to true to enable, false to disable. Example:\n\n[lang]\ngo = true\npython = false",
+      "title": "Lang",
+      "type": "object"
+    },
+    "secrets": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/SecretConfigDict"
+          }
+        ]
+      },
+      "description": "Secrets to enable in workflows. By default, no secrets are available in your generated workflows unless you specify them here.\n\nFor a secret available in all workflows, use simple syntax:\n\n[secrets]\nMY_TOKEN = \"GITHUB_SECRET_NAME\"\n\nTo restrict secrets to specific workflows, use contexts (valid values: 'build:release', 'test', 'validate'):\n\n[secrets.DB_PASSWORD]\nsecret = \"TEST_DB_SECRET\"\ncontexts = [\"test\", \"validate\"]",
+      "title": "Secrets",
+      "type": "object"
+    },
+    "aws": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AwsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Enables AWS authentication in workflows. Automatically adds AWS_ROLE and AWS_ROLE_SESSION_NAME secrets, and sets id_token permissions. Example:\n\naws.region = \"us-west-2\"\n\nOr:\n\n[aws]\nregion = \"us-west-2\""
+    },
+    "gcloud": {
+      "default": false,
+      "description": "Enables Google Cloud authentication in workflows. Automatically adds GCLOUD_SERVICE_ACCOUNT and GCLOUD_WORKLOAD_IDENTITY_PROVIDER secrets, and sets id_token permissions. Set to true to enable. Example:\n\ngcloud = true",
+      "title": "Gcloud",
+      "type": "boolean"
+    },
+    "validation": {
+      "$ref": "#/$defs/ValidationConfig",
+      "description": "Configuration for validation workflows. Currently supports specifying extra dependencies."
+    }
+  },
+  "title": "Schema for generate.toml",
+  "type": "object"
+}
