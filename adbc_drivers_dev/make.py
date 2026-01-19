@@ -93,7 +93,7 @@ def _check_call(f, *args, **kwargs) -> str:
                     env[k] += " " + v
                 else:
                     env[k] = v
-            elif k in {"ARCH", "SOURCE_ROOT"}:
+            elif k in {"ARCH", "SOURCE_ROOT", "ADBC_DRIVER_BUILD_VERSION"}:
                 env[k] = v
             else:
                 raise TypeError(f"Unsupported env var override {k}")
@@ -135,8 +135,8 @@ def detect_version(
     *,
     strict: bool = False,
 ) -> str:
-    if not (driver_root / "go.mod").is_file():
-        raise ValueError(f"{driver_root} does not contain a go.mod")
+    if not any((driver_root / name).is_file() for name in ("Cargo.toml", "go.mod")):
+        raise ValueError(f"{driver_root} does not contain a Cargo.toml or go.mod")
 
     repo_root = driver_root
     while not (repo_root / ".git").is_dir():
@@ -206,7 +206,7 @@ def get_var(name: str, default: str) -> str:
     return value
 
 
-def build(
+def build_go(
     repo_root: Path,
     driver_root: Path,
     driver: str,
@@ -305,6 +305,105 @@ def build(
     header.unlink(missing_ok=True)
 
 
+def build_rust(
+    repo_root: Path,
+    driver_root: Path,
+    driver: str,
+    target: str,
+    *,
+    ci: bool = False,
+) -> None:
+    version = detect_version(driver_root)
+    (repo_root / "build").mkdir(exist_ok=True)
+
+    debug = to_bool(get_var("DEBUG", "False"))
+
+    # Note: version embedded in library is determined by Cargo.toml
+    # TODO: check that it matches git tag?
+    args = []
+    if not debug:
+        args.append("--release")
+
+    features = []
+    extra_features = get_var("FEATURES", "")
+    if extra_features:
+        extra_features = extra_features.split(",")
+        extra_features = [tag.strip() for tag in extra_features]
+        extra_features = [tag for tag in extra_features if tag]
+        features.extend(extra_features)
+
+    if features:
+        args.append("--features")
+        args.append(",".join(features))
+
+    info("Building", target, "version", version, "features", features)
+
+    env = {}
+    # Some env vars need to be explicitly propagated into Docker
+    smuggle_vars = set()
+
+    if platform.system() == "Darwin":
+        # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
+        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
+
+    if ci and platform.system() == "Linux":
+        env["SOURCE_ROOT"] = str(repo_root)
+        env["ARCH"] = architecture()
+
+        volumes = get_var("ADDITIONAL_VOLUMES", "")
+        if volumes:
+            volumes = volumes.split(",")
+
+        smuggle_env = ""
+        for var in smuggle_vars:
+            if var in env:
+                smuggle_env += f'{var}="{shlex.quote(env[var])}" '
+
+        command = [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "--user",
+            str(os.getuid()),
+        ]
+
+        for volume in volumes:
+            command.extend(["-v", volume])
+
+        command.extend(
+            [
+                "manylinux-rust",
+                "--",
+                "bash",
+                "-c",
+                f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} cargo build {' '.join(args)}",
+            ]
+        )
+        check_call(command, cwd=Path(__file__).parent, env=env)
+    else:
+        check_call(
+            [
+                "cargo",
+                "build",
+                *args,
+            ],
+            cwd=driver_root,
+            env=env,
+        )
+
+    lib = driver_root / "target"
+    if debug:
+        lib = lib / "debug"
+    else:
+        lib = lib / "release"
+
+    lib = lib / target
+    lib.rename(repo_root / "build" / target)
+    output = (repo_root / "build" / target).resolve()
+    output.chmod(0o755)
+
+
 def check_linux(binary: Path) -> None:
     symbols = check_output(
         [
@@ -383,32 +482,40 @@ def task_build():
         raise ValueError("Must specify DRIVER=driver")
 
     ci = get_var("CI", False)
+    lang = get_var("IMPL_LANG", "go").strip().lower()
 
-    repo_root = Path(".").resolve()
+    repo_root = Path(".").resolve().absolute()
     driver_root = Path(driver)
     if driver_root.is_dir():
         driver_root = driver_root.resolve()
-    elif Path("./go.mod").is_file():
-        # Some repositories will only ever contain a single driver, and so
-        # they live at the root.
+    elif Path("./go.mod").is_file() or Path("./Cargo.toml").is_file():
         driver_root = Path(".").resolve()
 
     # Compute dependencies
     file_deps = []
-    extensions = [".go", ".c", ".h"]
+    extensions = [".go", ".c", ".cc", ".cpp", ".h", ".rs"]
     for dirname, _, filenames in driver_root.walk():
         for filename in filenames:
-            if filename in {"go.mod", "go.sum"}:
+            if filename in {"go.mod", "go.sum", "Cargo.toml", "Cargo.lock"}:
                 file_deps.append(Path(dirname) / filename)
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
     target = f"libadbc_driver_{driver}.{EXT}"
 
+    if lang == "go":
+        actions = [
+            lambda: build_go(repo_root, driver_root, driver, target, ci=ci),
+        ]
+    elif lang == "rust":
+        actions = [
+            lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
+        ]
+    else:
+        raise ValueError(f"Unsupported LANG={lang}")
+
     return {
-        "actions": [
-            lambda: build(repo_root, driver_root, driver, target, ci=ci),
-        ],
+        "actions": actions,
         "file_dep": [str(p) for p in file_deps],
         "targets": [repo_root / "build" / target],
     }

@@ -18,12 +18,19 @@ FROM quay.io/pypa/${MANYLINUX}:latest
 RUN ulimit -n 1024 && yum install -y wget && yum clean all
 ENV PATH="/usr/local/rust/bin:${PATH}"
 
+ARG LIBCLANG
 ARG RUST
 ARG TARGETPLATFORM
 
-RUN git config --global --add safe.directory /source \
+RUN mkdir -p /.cargo \
+    && chmod 777 /.cargo \
+    && git config --global --add safe.directory /source \
     && cp /root/.gitconfig /.gitconfig \
     && chmod 777 /.gitconfig
 
 ADD install_rust.sh /
 RUN /install_rust.sh ${RUST} ${TARGETPLATFORM} && rm /install_rust.sh
+
+ADD install_libclang.sh /
+RUN /install_libclang.sh ${LIBCLANG} ${TARGETPLATFORM} && rm /install_libclang.sh
+ENV LIBCLANG_PATH=/opt/libclang/libclang-${LIBCLANG}.data/platlib/clang/native/libclang.so
