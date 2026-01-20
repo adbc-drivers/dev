@@ -296,6 +296,11 @@ jobs:
           workload_identity_provider: ${{ secrets.gcloud_workload_identity_provider }}
 <% endif %>
 
+      - name: Log in to ghcr.io
+        if: runner.os == 'Linux'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Build Library
         working-directory: go
         run: |
