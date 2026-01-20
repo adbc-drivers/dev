@@ -77,15 +77,15 @@ jobs:
 
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -b $BRANCH
+            git checkout -b "$BRANCH"
             # Only add workflow files
             git add .github/workflows/
             git commit -m "update generated workflows"
-            git push origin $BRANCH
+            git push origin "$BRANCH"
 
             gh pr create \
               --base main \
-              --head $BRANCH \
+              --head "$BRANCH" \
               --title "$PR_TITLE" \
               --body "" || {
                 echo "ERROR: Failed to create pull request"
