@@ -136,13 +136,22 @@ def main():
             unapproved += 1
             print("-", filename)
 
+        # ------------------------------------------------------------
+        # Check other aspects of the copyright header
+        # ------------------------------------------------------------
+
         missing_copyright = []
         missing_apache_header = []
+        # Has "This file has been modified..." header but is not listed in .rat-apache
         should_not_have_apache_header = []
+        # Has "Licensed to the Apache Software Foundation" but is missing
+        # "This file has been modified..."
+        should_not_have_licensed_header = []
         copyright_re = re.compile(r"Copyright \(c\) [0-9]{4} ADBC Drivers Contributors")
         header_re = re.compile(
             r"This file has been modified from its original version, which is under the Apache License: Licensed to the Apache Software Foundation"
         )
+        licensed_re = re.compile("Licensed to the Apache Software Foundation")
         sep_re = re.compile(r"[^a-zA-Z0-9,:()]+")
         with tarfile.open(archive, "r") as tar:
             for member in tar.getmembers():
@@ -177,6 +186,8 @@ def main():
                         missing_apache_header.append(member.name)
                 elif header_re.search(content):
                     should_not_have_apache_header.append(member.name)
+                elif licensed_re.search(content):
+                    should_not_have_licensed_header.append(member.name)
 
         if missing_copyright:
             print("Files missing ADBC Drivers Contributors copyright header:")
@@ -193,8 +204,17 @@ def main():
             for name in should_not_have_apache_header:
                 print("-", name)
 
+        if should_not_have_licensed_header:
+            print(
+                "Files that have 'Licensed to the Apache Software Foundation' header,"
+            )
+            print("but are missing 'This file has been modified' header:")
+            for name in should_not_have_licensed_header:
+                print("-", name)
+
         unapproved += len(missing_copyright)
         unapproved += len(missing_apache_header)
         unapproved += len(should_not_have_apache_header)
+        unapproved += len(should_not_have_licensed_header)
 
-    return unapproved
+    return 1 if unapproved else 0
