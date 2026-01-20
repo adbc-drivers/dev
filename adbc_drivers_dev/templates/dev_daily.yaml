@@ -79,8 +79,7 @@ jobs:
               --base main \
               --head $BRANCH \
               --title "$PR_TITLE" \
-              --body "TODO" \
-              --dry-run
+              --body ""
           else
             echo "No changes to commit. Skipping creating a PR."
           fi
