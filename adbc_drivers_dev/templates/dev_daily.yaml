@@ -85,7 +85,10 @@ jobs:
               --base main \
               --head $BRANCH \
               --title "$PR_TITLE" \
-              --body ""
+              --body "" || {
+                echo "ERROR: Failed to create pull request"
+                exit 1
+              }
           else
             echo "No changes to commit. Skipping creating a PR."
           fi
