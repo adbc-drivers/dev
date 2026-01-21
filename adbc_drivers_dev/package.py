@@ -89,6 +89,68 @@ def validate_manifest(manifest: dict[str, typing.Any]) -> None:
         raise ValueError("Manifest `Files.driver` must not be empty")
 
 
+def generate_go_license(license_template: Path, gomod: Path) -> str:
+    # Ignore the current package's license (as it's already included)
+    this_package = None
+    with gomod.open("r") as source:
+        for line in source:
+            if line.startswith("module "):
+                _, _, this_package = line.strip().partition(" ")
+    if not this_package:
+        raise RuntimeError("Could not determine module name to ignore")
+
+    license_proc = subprocess.run(
+        [
+            "go-licenses",
+            "report",
+            "./...",
+            "--ignore",
+            this_package,
+            "--template",
+            str(license_template.absolute()),
+        ],
+        cwd=license_template.parent,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if license_proc.returncode != 0:
+        print("Failed to generate license", file=sys.stderr)
+        print("Stdout:", file=sys.stderr)
+        print(license_proc.stdout, file=sys.stderr)
+        print("Stderr:", file=sys.stderr)
+        print(license_proc.stderr, file=sys.stderr)
+        license_proc.check_returncode()
+    license_data = license_proc.stdout
+    return license_data
+
+
+def generate_rust_license(license_template: Path) -> str:
+    license_proc = subprocess.run(
+        [
+            "cargo-about",
+            "generate",
+            "--all-features",
+            "--fail",
+            "--locked",
+            "--target",
+            "aarch64-apple-darwin,aarch64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-unknown-linux-gnu",
+            str(license_template.absolute()),
+        ],
+        cwd=license_template.parent,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if license_proc.returncode != 0:
+        print("Failed to generate license", file=sys.stderr)
+        print("Stdout:", file=sys.stderr)
+        print(license_proc.stdout, file=sys.stderr)
+        print("Stderr:", file=sys.stderr)
+        print(license_proc.stderr, file=sys.stderr)
+        license_proc.check_returncode()
+    license_data = license_proc.stdout
+    return license_data
+
+
 def generate_packages(
     manifest: dict[str, typing.Any],
     driver_name: str,
@@ -205,42 +267,21 @@ def main():
     # ------------------------------------------------------------
     license_data = None
     notice_file = args.manifest_template.with_name("NOTICE.txt")
+    if not notice_file.is_file():
+        notice_file = args.manifest_template.parent.parent / "NOTICE.txt"
+    if not notice_file.is_file():
+        raise RuntimeError(f"NOTICE.txt ({notice_file}) is missing")
+
     license_template = args.manifest_template.with_name("license.tpl")
     if license_template.is_file():
-        # Ignore the current package's license (as it's already included)
-        gomod = args.manifest_template.with_name("go.mod")
-        this_package = None
-        with gomod.open("r") as source:
-            for line in source:
-                if line.startswith("module "):
-                    _, _, this_package = line.strip().partition(" ")
-        if not this_package:
-            raise RuntimeError("Could not determine module name to ignore")
-
-        license_proc = subprocess.run(
-            [
-                "go-licenses",
-                "report",
-                "./...",
-                "--ignore",
-                this_package,
-                "--template",
-                str(license_template.absolute()),
-            ],
-            cwd=license_template.parent,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        if license_proc.returncode != 0:
-            print("Failed to generate license", file=sys.stderr)
-            print("Stdout:", file=sys.stderr)
-            print(license_proc.stdout, file=sys.stderr)
-            print("Stderr:", file=sys.stderr)
-            print(license_proc.stderr, file=sys.stderr)
-            license_proc.check_returncode()
-        license_data = license_proc.stdout
-    if not notice_file.is_file():
-        notice_file = None
+        if (gomod := args.manifest_template.with_name("go.mod")).is_file():
+            license_data = generate_go_license(license_template, gomod)
+        elif args.manifest_template.with_name("Cargo.toml").is_file():
+            license_data = generate_rust_license(license_template)
+        else:
+            raise RuntimeError("Could not determine how to generate license")
+    else:
+        raise RuntimeError(f"License template ({license_template}) is missing")
 
     # ------------------------------------------------------------
     # Generate packages
