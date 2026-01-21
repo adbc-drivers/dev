@@ -404,7 +404,11 @@ def build_rust(
     else:
         lib = lib / "release"
 
-    lib = lib / target
+    source_target = target
+    if platform.system() == "Windows":
+        source_target = target.removeprefix("lib")
+    lib = lib / source_target
+
     lib.rename(repo_root / "build" / target)
     output = (repo_root / "build" / target).resolve()
     output.chmod(0o755)
@@ -514,8 +518,6 @@ def task_build():
             lambda: build_go(repo_root, driver_root, driver, target, ci=ci),
         ]
     elif lang == "rust":
-        if platform.system() != "Windows":
-            target = f"lib{target}"
         actions = [
             lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
         ]
