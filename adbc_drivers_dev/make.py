@@ -93,7 +93,12 @@ def _check_call(f, *args, **kwargs) -> str:
                     env[k] += " " + v
                 else:
                     env[k] = v
-            elif k in {"ARCH", "SOURCE_ROOT", "ADBC_DRIVER_BUILD_VERSION"}:
+            elif k in {
+                "ADBC_DRIVER_BUILD_VERSION",
+                "ARCH",
+                "MACOSX_DEPLOYMENT_TARGET",
+                "SOURCE_ROOT",
+            }:
                 env[k] = v
             else:
                 raise TypeError(f"Unsupported env var override {k}")
