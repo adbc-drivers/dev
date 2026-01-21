@@ -219,7 +219,6 @@ def build_go(
     *,
     ci: bool = False,
 ) -> None:
-    target = f"lib{target}"
     version = detect_version(driver_root)
     (repo_root / "build").mkdir(exist_ok=True)
 
@@ -511,7 +510,7 @@ def task_build():
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
-    target = f"adbc_driver_{driver}.{EXT}"
+    target = f"libadbc_driver_{driver}.{EXT}"
 
     if lang == "go":
         actions = [
