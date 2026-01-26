@@ -15,7 +15,7 @@
 import pytest
 from pydantic import ValidationError
 
-from adbc_drivers_dev.generate import GenerateConfig
+from adbc_drivers_dev.generate import GenerateConfig, LangConfig
 
 
 def test_model_default() -> None:
@@ -27,6 +27,7 @@ def test_model_default() -> None:
     assert config._processed_secrets == {
         "all": {},
         "build:release": {},
+        "build:test": {},
         "test": {},
         "validate": {},
     }
@@ -43,6 +44,7 @@ def test_model_default() -> None:
         "secrets": {
             "all": {},
             "build:release": {},
+            "build:test": {},
             "test": {},
             "validate": {},
         },
@@ -75,8 +77,7 @@ def test_model_custom() -> None:
     assert config != GenerateConfig.model_validate({})
 
     config = GenerateConfig.model_validate({"lang": {"python": True, "java": False}})
-    assert config.lang == {"python": True, "java": False}
-    assert config.to_dict()["lang"] == {"python": True, "java": False}
+    assert config.lang == {"python": LangConfig(), "java": None}
     assert config == config
     assert config != GenerateConfig.model_validate({})
 
@@ -94,12 +95,14 @@ def test_params_secrets() -> None:
     assert config._processed_secrets == {
         "all": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
         "build:release": {"foo": "bar", "spam": "eggs"},
+        "build:test": {"foo": "bar", "spam": "eggs"},
         "test": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
         "validate": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
     }
     assert config.to_dict()["secrets"] == {
         "all": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
         "build:release": {"foo": "bar", "spam": "eggs"},
+        "build:test": {"foo": "bar", "spam": "eggs"},
         "test": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
         "validate": {"foo": "bar", "spam": "eggs", "fizz": "buzz"},
     }
@@ -116,6 +119,7 @@ def test_params_aws() -> None:
             "AWS_ROLE_SESSION_NAME": "AWS_ROLE_SESSION_NAME",
         },
         "build:release": {},
+        "build:test": {},
         "test": {},
         "validate": {},
     }
@@ -125,6 +129,7 @@ def test_params_aws() -> None:
             "AWS_ROLE_SESSION_NAME": "AWS_ROLE_SESSION_NAME",
         },
         "build:release": {},
+        "build:test": {},
         "test": {},
         "validate": {},
     }
@@ -141,6 +146,7 @@ def test_params_gcloud() -> None:
             "GCLOUD_WORKLOAD_IDENTITY_PROVIDER": "GCLOUD_WORKLOAD_IDENTITY_PROVIDER",
         },
         "build:release": {},
+        "build:test": {},
         "test": {},
         "validate": {},
     }
@@ -150,6 +156,7 @@ def test_params_gcloud() -> None:
             "GCLOUD_WORKLOAD_IDENTITY_PROVIDER": "GCLOUD_WORKLOAD_IDENTITY_PROVIDER",
         },
         "build:release": {},
+        "build:test": {},
         "test": {},
         "validate": {},
     }
@@ -229,6 +236,7 @@ def test_params_aws_and_gcloud() -> None:
 
     # Individual contexts should be empty too
     assert config._processed_secrets["build:release"] == {}
+    assert config._processed_secrets["build:test"] == {}
     assert config._processed_secrets["test"] == {}
     assert config._processed_secrets["validate"] == {}
 
