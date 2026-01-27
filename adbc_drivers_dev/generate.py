@@ -242,6 +242,9 @@ gcloud = true"""
                 "GCLOUD_WORKLOAD_IDENTITY_PROVIDER"
             )
 
+        if self.private:
+            all_secrets["COLUMNAR_CLOUD_API_TOKEN"] = "COLUMNAR_CLOUD_API_TOKEN"
+
         self._processed_secrets["all"] = all_secrets
 
         # Set permissions
