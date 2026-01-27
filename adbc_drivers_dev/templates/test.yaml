@@ -77,7 +77,7 @@ on:
 concurrency:
 <% if environment %>
   # Must share concurrency group with release workflow since it also builds/tests
-  group: ${{ github.repository }}-${{ github.ref }}-<{environment}>
+  group: ${{ github.repository }}-${{ github.ref }}-<{environment.replace(' ', '-')}>
 <% else %>
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
 <% endif %>
@@ -650,7 +650,9 @@ jobs:
           cd dbc
           go build ./cmd/dbc
           echo "Installed dbc"
+          ls -laR ~/packages
           driver_pkg=$(find ~/packages -name '*_${{ matrix.platform }}_${{ matrix.arch }}_*.tar.gz')
+          echo "Installing ${driver_pkg}"
           ./dbc install --no-verify "${driver_pkg}"
           echo "Installed ${driver_pkg}"
 <% if release or not secrets["all"] %>
