@@ -29,17 +29,16 @@
 name: <{lang_human}> <{workflow_name}>
 
 on:
+<% if not release %>
   pull_request:
     branches:
       - main
     paths:
-<% if not release %>
       - "<{lang_subdir}>/**"
-<% endif %>
 <% for path in pull_request_trigger_paths %>
       - <{path}>
 <% endfor %>
-
+<% endif %>
   push:
 <% if release %>
     tags:
@@ -76,8 +75,12 @@ on:
 <% endif %>
 
 concurrency:
+<% if environment %>
   # Must share concurrency group with release workflow since it also builds/tests
-  group: ${{ github.repository }}-${{ github.ref }}-ci
+  group: ${{ github.repository }}-${{ github.ref }}-<{environment}>
+<% else %>
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+<% endif %>
   cancel-in-progress: true
 
 defaults:
@@ -226,7 +229,7 @@ jobs:
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }}
           fi
 
 <% if lang == "go" %>
@@ -393,7 +396,7 @@ jobs:
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }}
           fi
 
           docker ps
@@ -671,12 +674,16 @@ jobs:
           persist-credentials: false
 <% endif %>
       - name: load package
+<% if private or secrets["build:test"] %>
         env:
+<% if private %>
           COLUMNAR_CLOUD_API_TOKEN: ${{ secrets.COLUMNAR_CLOUD_API_TOKEN }}
+<% endif %>
 <% if secrets["build:test"] %>
 <% for name, val in secrets["build:test"].items() %>
           <{name}>: ${{ secrets.<{val}> }}
 <% endfor %>
+<% endif %>
 <% endif %>
         working-directory: <{ lang_subdir }>
         run: |
@@ -688,9 +695,9 @@ jobs:
           if [[ -f .env.ci ]]; then
             source .env.ci
           fi
-
+<% if private %>
           export COLUMNAR_DRIVER_LICENSE_KEY=$(curl --silent --fail -XGET -H 'Content-Type: application/json' -H "Authorization: Bearer $COLUMNAR_CLOUD_API_TOKEN" https://heimdall.columnar.tech/trial_license)
-
+<% endif %>
           pixi exec -s adbc-driver-manager -s pyarrow -s pytest python -m pytest -vs ci/test_package.py
 
   release:
