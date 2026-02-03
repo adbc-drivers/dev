@@ -419,7 +419,7 @@ def build_rust(
     output.chmod(0o755)
 
 
-def build_custom(
+def build_script(
     repo_root: Path,
     driver_root: Path,
     driver: str,
@@ -543,7 +543,7 @@ def task_build():
     if driver_root.is_dir():
         driver_root = driver_root.resolve()
     elif (
-        Path("./go.mod").is_file() or Path("./Cargo.toml").is_file() or lang == "custom"
+        Path("./go.mod").is_file() or Path("./Cargo.toml").is_file() or lang == "script"
     ):
         driver_root = Path(".").resolve()
 
@@ -567,9 +567,9 @@ def task_build():
         actions = [
             lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
         ]
-    elif lang == "custom":
+    elif lang == "script":
         actions = [
-            lambda: build_custom(repo_root, driver_root, driver, target, ci=ci),
+            lambda: build_script(repo_root, driver_root, driver, target, ci=ci),
         ]
     else:
         raise ValueError(f"Unsupported LANG={lang}")
