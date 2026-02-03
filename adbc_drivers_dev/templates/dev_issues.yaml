@@ -1,7 +1,7 @@
 <% if private %>
-# Copyright (c) 2026 Columnar Technologies Inc.  All rights reserved.
+# Copyright (c) 2025-2026 Columnar Technologies Inc.  All rights reserved.
 <% else %>
-# Copyright (c) 2026 ADBC Drivers Contributors
+# Copyright (c) 2025-2026 ADBC Drivers Contributors
 <% endif %>
 #
 # This file has been modified from its original version, which is
