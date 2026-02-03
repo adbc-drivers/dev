@@ -116,6 +116,9 @@ def generate_workflows(args) -> int:
 
         (args.repository / lang_subdir).mkdir(parents=True, exist_ok=True)
 
+        lang_tools = {lang}
+        lang_tools.update(lang_config.build.lang_tools)
+
         template = env.get_template("test.yaml")
         write_workflow(
             workflows,
@@ -130,6 +133,7 @@ def generate_workflows(args) -> int:
                 "lang_human": lang_human,
                 "lang_subdir": lang_subdir,
                 "lang_config": lang_config,
+                "lang_tools": lang_tools,
             },
         )
         write_workflow(
@@ -144,6 +148,7 @@ def generate_workflows(args) -> int:
                 "lang_human": lang_human,
                 "lang_subdir": lang_subdir,
                 "lang_config": lang_config,
+                "lang_tools": lang_tools,
             },
         )
         template = env.get_template("go_test_pr.yaml")

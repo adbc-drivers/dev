@@ -22,6 +22,7 @@ import dataclasses
 import enum
 import io
 import itertools
+import os
 import subprocess
 import sys
 import tarfile
@@ -137,6 +138,33 @@ def generate_rust_license(license_template: Path) -> str:
             str(license_template.absolute()),
         ],
         cwd=license_template.parent,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if license_proc.returncode != 0:
+        print("Failed to generate license", file=sys.stderr)
+        print("Stdout:", file=sys.stderr)
+        print(license_proc.stdout, file=sys.stderr)
+        print("Stderr:", file=sys.stderr)
+        print(license_proc.stderr, file=sys.stderr)
+        license_proc.check_returncode()
+    license_data = license_proc.stdout
+    return license_data
+
+
+def generate_custom_license(license_script: Path) -> str:
+    import platform
+
+    args = [str(license_script.absolute())]
+    if (
+        platform.system() == "Windows"
+        and os.environ.get("CI", "").lower().strip() == "true"
+    ):
+        # Force use of Git Bash on GitHub Actions
+        args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
+    license_proc = subprocess.run(
+        args,
+        cwd=license_script.parent.parent.parent,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -272,8 +300,11 @@ def main():
     if not notice_file.is_file():
         raise RuntimeError(f"NOTICE.txt ({notice_file}) is missing")
 
+    license_script = args.manifest_template.parent / "ci/scripts/generate_license.sh"
     license_template = args.manifest_template.with_name("license.tpl")
-    if license_template.is_file():
+    if license_script.is_file():
+        license_data = generate_custom_license(license_script)
+    elif license_template.is_file():
         if (gomod := args.manifest_template.with_name("go.mod")).is_file():
             license_data = generate_go_license(license_template, gomod)
         elif args.manifest_template.with_name("Cargo.toml").is_file():

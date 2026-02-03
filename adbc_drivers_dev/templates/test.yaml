@@ -139,13 +139,14 @@ jobs:
           submodules: 'recursive'
 <% endif %>
 
-<% if lang == "go" %>
+<% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
           go-version-file: go/go.mod
-<% elif lang == "rust" %>
+<% endif %>
+<% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
         with:
           components: "clippy"
@@ -317,13 +318,14 @@ jobs:
           submodules: 'recursive'
 <% endif %>
 
-<% if lang == "go" %>
+<% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
           go-version-file: go/go.mod
-<% elif lang == "rust" %>
+<% endif %>
+<% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
         with:
           components: "clippy"
@@ -493,13 +495,14 @@ jobs:
           submodules: 'recursive'
 <% endif %>
 
-<% if lang == "go" %>
+<% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           cache-dependency-path: go/go.sum
           check-latest: true
           go-version-file: go/go.mod
-<% elif lang == "rust" %>
+<% endif %>
+<% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
         with:
           components: "clippy"
@@ -582,12 +585,13 @@ jobs:
           submodules: 'recursive'
 <% endif %>
 
-<% if lang == "go" %>
+<% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
           check-latest: true
           go-version: "stable"
-<% elif lang == "rust" %>
+<% endif %>
+<% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
         with:
           components: "clippy"
@@ -606,7 +610,7 @@ jobs:
       - name: Install tools
         working-directory: <{ lang_subdir }>
         run: |
-<% if lang == "go" %>
+<% if "go" in lang_tools %>
           # XXX: can't install go-licenses under go 1.25
           # https://github.com/google/go-licenses/issues/312
           git clone --depth=1 https://github.com/google/go-licenses
@@ -619,7 +623,8 @@ jobs:
           go mod tidy
           go install .
           popd
-<% elif lang == "rust" %>
+<% endif %>
+<% if "rust" in lang_tools %>
           cargo install cargo-about
 <% endif %>
 
@@ -785,11 +790,6 @@ jobs:
           persist-credentials: false
           submodules: 'recursive'
 <% endif %>
-
-      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
-        with:
-          check-latest: true
-          go-version: "stable"
 
       - uses: prefix-dev/setup-pixi@a0af7a228712d6121d37aba47adf55c1332c9c2e  # v0.9.4
         with:
