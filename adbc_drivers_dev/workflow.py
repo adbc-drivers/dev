@@ -153,15 +153,16 @@ def generate_workflows(args) -> int:
                 },
             )
 
-        template = env.get_template("golangci.toml")
-        write_workflow(
-            args.repository,
-            template,
-            ".golangci.toml",
-            {
-                **params.to_dict(),
-            },
-        )
+        if lang == "go":
+            template = env.get_template("golangci.toml")
+            write_workflow(
+                args.repository,
+                template,
+                ".golangci.toml",
+                {
+                    **params.to_dict(),
+                },
+            )
 
     for dev in ["dev.yaml", "dev_issues.yaml", "dev_pr.yaml", "dev_daily.yaml"]:
         template = env.get_template(dev)
@@ -186,6 +187,10 @@ def generate_workflows(args) -> int:
             "pixi.toml",
             {
                 **params.to_dict(),
+                "lang": lang,
+                "lang_human": lang_human,
+                "lang_subdir": lang_subdir,
+                "lang_config": lang_config,
             },
         )
 

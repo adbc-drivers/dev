@@ -183,6 +183,13 @@ jobs:
             ./ci/scripts/pre-build.sh test ${{ matrix.platform }} ${{ matrix.arch }}
           fi
 
+          set -a
+          if [[ -f .env.build ]]; then
+            echo "Loading .env.build"
+            source .env.build
+          fi
+          set +a
+
 <% if lang == "go" %>
           go build ./...
 <% elif lang == "rust" %>
@@ -351,7 +358,11 @@ jobs:
             ./ci/scripts/pre-build.sh test ${{ matrix.platform }} ${{ matrix.arch }}
           fi
           set -a
-          if [[ -f .env.release ]]; then
+          if [[ -f .env.build ]]; then
+            echo "Loading .env.build"
+            source .env.build
+          fi
+          if [[ -f .env.test ]]; then
             source .env.test
           fi
           set +a
@@ -510,6 +521,10 @@ jobs:
             ./ci/scripts/pre-build.sh release ${{ matrix.platform }} ${{ matrix.arch }}
           fi
           set -a
+          if [[ -f .env.build ]]; then
+            echo "Loading .env.build"
+            source .env.build
+          fi
           if [[ -f .env.release ]]; then
             source .env.release
           fi
@@ -693,10 +708,15 @@ jobs:
             echo "Loading pre-build"
             ./ci/scripts/pre-build.sh test ${{ matrix.platform }} ${{ matrix.arch }}
           fi
-
+          set -a
+          if [[ -f .env.build ]]; then
+            echo "Loading .env.build"
+            source .env.build
+          fi
           if [[ -f .env.ci ]]; then
             source .env.ci
           fi
+          set +a
 <% if private %>
           export COLUMNAR_DRIVER_LICENSE_KEY=$(curl --silent --fail -XGET -H 'Content-Type: application/json' -H "Authorization: Bearer $COLUMNAR_CLOUD_API_TOKEN" https://heimdall.columnar.tech/trial_license)
 <% endif %>
