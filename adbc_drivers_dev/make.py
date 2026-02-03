@@ -448,8 +448,11 @@ def build_script(
     if platform.system() == "Darwin":
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
-    # for Windows
-    args = ["bash", "./ci/scripts/build.sh", *args]
+    args = ["./ci/scripts/build.sh", *args]
+    if ci and PLATFORM == "windows":
+        # Force use of Git Bash on GitHub Actions
+        args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
+
     maybe_build_docker(
         repo_root=repo_root,
         driver_root=driver_root,
