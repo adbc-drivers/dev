@@ -32,10 +32,13 @@ import packaging.version
 match platform.system():
     case "Darwin":
         EXT = "dylib"
+        PLATFORM = "macos"
     case "Linux":
         EXT = "so"
+        PLATFORM = "linux"
     case "Windows":
         EXT = "dll"
+        PLATFORM = "windows"
     case _:
         raise RuntimeError(f"Unsupported platform: {platform.system()}")
 
@@ -43,6 +46,7 @@ match platform.system():
 DOIT_CONFIG = {
     "default_tasks": ["build"],
 }
+SMUGGLE_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS", "PROTOC"}
 
 
 def to_bool(value: str | bool) -> bool:
@@ -140,9 +144,6 @@ def detect_version(
     *,
     strict: bool = False,
 ) -> str:
-    if not any((driver_root / name).is_file() for name in ("Cargo.toml", "go.mod")):
-        raise ValueError(f"{driver_root} does not contain a Cargo.toml or go.mod")
-
     repo_root = driver_root
     while not (repo_root / ".git").is_dir():
         if repo_root.parent == repo_root:
@@ -211,6 +212,58 @@ def get_var(name: str, default: str) -> str:
     return value
 
 
+def maybe_build_docker(
+    *,
+    repo_root: Path,
+    driver_root: Path,
+    env: dict[str, str],
+    args: list[str],
+    ci: bool,
+) -> None:
+    if not ci or platform.system() != "Linux":
+        check_call(args, cwd=driver_root, env=env)
+        return
+
+    env = env.copy()
+    env["SOURCE_ROOT"] = str(repo_root)
+    env["ARCH"] = architecture()
+
+    volumes = get_var("ADDITIONAL_VOLUMES", "")
+    if volumes:
+        volumes = volumes.split(",")
+
+    # Some env vars need to be explicitly propagated into Docker
+    smuggle_env = ""
+    for var in SMUGGLE_VARS:
+        if var in env:
+            smuggle_env += f'{var}="{shlex.quote(env[var])}" '
+        elif var in os.environ:
+            smuggle_env += f'{var}="{shlex.quote(os.environ[var])}" '
+
+    command = [
+        "docker",
+        "compose",
+        "run",
+        "--rm",
+        "--user",
+        str(os.getuid()),
+    ]
+
+    for volume in volumes:
+        command.extend(["-v", volume])
+
+    command.extend(
+        [
+            "manylinux-rust",
+            "--",
+            "bash",
+            "-c",
+            f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} {' '.join(args)}",
+        ]
+    )
+    check_call(command, cwd=Path(__file__).parent, env=env)
+
+
 def build_go(
     repo_root: Path,
     driver_root: Path,
@@ -249,9 +302,7 @@ def build_go(
     info("Building", target, "version", version)
 
     env = {}
-
-    smuggle_vars = ("CGO_CFLAGS", "CGO_LDFLAGS")
-    for var in smuggle_vars:
+    for var in SMUGGLE_VARS:
         if var in os.environ:
             env[var] = os.environ[var]
 
@@ -260,33 +311,29 @@ def build_go(
         append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=11.0")
 
     if ci and platform.system() == "Linux":
-        env["SOURCE_ROOT"] = str(repo_root)
-        env["ARCH"] = architecture()
-
         check_call(["go", "mod", "vendor"], cwd=driver_root)
-
-        smuggle_env = ""
-        for var in smuggle_vars:
-            if var in env:
-                smuggle_env += f'{var}="{shlex.quote(env[var])}" '
-
         ldflags += (
             " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
         )
-        command = [
-            "docker",
-            "compose",
-            "run",
-            "--rm",
-            "--user",
-            str(os.getuid()),
-            "manylinux",
-            "--",
-            "bash",
-            "-c",
-            f'cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} go build -buildmode=c-shared {tags} -o /source/build/{target} -ldflags "{ldflags}" ./pkg',
-        ]
-        check_call(command, cwd=Path(__file__).parent, env=env)
+
+        # Command differs under Docker so don't invoke this otherwise
+        maybe_build_docker(
+            repo_root=repo_root,
+            driver_root=driver_root,
+            env=env,
+            args=[
+                "go",
+                "build",
+                "-buildmode=c-shared",
+                tags,
+                "-o",
+                f"/source/build/{target}",
+                "-ldflags",
+                ldflags,
+                "./pkg",
+            ],
+            ci=ci,
+        )
     else:
         check_call(
             [
@@ -344,60 +391,17 @@ def build_rust(
     info("Building", target, "version", version, "features", features)
 
     env = {}
-    # Some env vars need to be explicitly propagated into Docker
-    smuggle_vars = {"PROTOC"}
-
     if platform.system() == "Darwin":
         # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
-    if ci and platform.system() == "Linux":
-        env["SOURCE_ROOT"] = str(repo_root)
-        env["ARCH"] = architecture()
-
-        volumes = get_var("ADDITIONAL_VOLUMES", "")
-        if volumes:
-            volumes = volumes.split(",")
-
-        smuggle_env = ""
-        for var in smuggle_vars:
-            if var in env:
-                smuggle_env += f'{var}="{shlex.quote(env[var])}" '
-            elif var in os.environ:
-                smuggle_env += f'{var}="{shlex.quote(os.environ[var])}" '
-
-        command = [
-            "docker",
-            "compose",
-            "run",
-            "--rm",
-            "--user",
-            str(os.getuid()),
-        ]
-
-        for volume in volumes:
-            command.extend(["-v", volume])
-
-        command.extend(
-            [
-                "manylinux-rust",
-                "--",
-                "bash",
-                "-c",
-                f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} cargo build {' '.join(args)}",
-            ]
-        )
-        check_call(command, cwd=Path(__file__).parent, env=env)
-    else:
-        check_call(
-            [
-                "cargo",
-                "build",
-                *args,
-            ],
-            cwd=driver_root,
-            env=env,
-        )
+    maybe_build_docker(
+        repo_root=repo_root,
+        driver_root=driver_root,
+        env=env,
+        args=["cargo", "build", *args],
+        ci=ci,
+    )
 
     lib = driver_root / "target"
     if debug:
@@ -411,6 +415,45 @@ def build_rust(
     lib = lib / source_target
 
     lib.rename(repo_root / "build" / target)
+    output = (repo_root / "build" / target).resolve()
+    output.chmod(0o755)
+
+
+def build_custom(
+    repo_root: Path,
+    driver_root: Path,
+    driver: str,
+    target: str,
+    *,
+    ci: bool = False,
+) -> None:
+    version = detect_version(driver_root)
+    (repo_root / "build").mkdir(exist_ok=True)
+
+    debug = to_bool(get_var("DEBUG", "False"))
+
+    args = []
+    if debug:
+        args.append("release")
+    else:
+        args.append("test")
+    args.append(PLATFORM)
+    args.append(architecture())
+
+    info("Building", target, "version", version)
+
+    env = {}
+    if platform.system() == "Darwin":
+        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
+
+    maybe_build_docker(
+        repo_root=repo_root,
+        driver_root=driver_root,
+        env=env,
+        args=["./ci/scripts/build.sh", *args],
+        ci=ci,
+    )
+
     output = (repo_root / "build" / target).resolve()
     output.chmod(0o755)
 
@@ -492,14 +535,16 @@ def task_build():
     if not driver:
         raise ValueError("Must specify DRIVER=driver")
 
-    ci = get_var("CI", False)
+    ci = to_bool(get_var("CI", False))
     lang = get_var("IMPL_LANG", "go").strip().lower()
 
     repo_root = Path(".").resolve().absolute()
     driver_root = Path(driver)
     if driver_root.is_dir():
         driver_root = driver_root.resolve()
-    elif Path("./go.mod").is_file() or Path("./Cargo.toml").is_file():
+    elif (
+        Path("./go.mod").is_file() or Path("./Cargo.toml").is_file() or lang == "custom"
+    ):
         driver_root = Path(".").resolve()
 
     # Compute dependencies
@@ -521,6 +566,10 @@ def task_build():
     elif lang == "rust":
         actions = [
             lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
+        ]
+    elif lang == "custom":
+        actions = [
+            lambda: build_custom(repo_root, driver_root, driver, target, ci=ci),
         ]
     else:
         raise ValueError(f"Unsupported LANG={lang}")
