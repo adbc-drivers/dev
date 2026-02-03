@@ -147,7 +147,9 @@ def main():
         # Has "Licensed to the Apache Software Foundation" but is missing
         # "This file has been modified..."
         should_not_have_licensed_header = []
-        copyright_re = re.compile(r"Copyright \(c\) [0-9]{4} ADBC Drivers Contributors")
+        copyright_re = re.compile(
+            r"Copyright \(c\) [0-9]{4}(\s+[0-9]{4})? ADBC Drivers Contributors"
+        )
         header_re = re.compile(
             r"This file has been modified from its original version, which is under the Apache License: Licensed to the Apache Software Foundation"
         )
