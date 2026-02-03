@@ -444,9 +444,9 @@ def build_script(
 
     args = []
     if debug:
-        args.append("release")
-    else:
         args.append("test")
+    else:
+        args.append("release")
     args.append(PLATFORM)
     args.append(architecture())
 
