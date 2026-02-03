@@ -79,6 +79,8 @@ def architecture() -> str:
             return "amd64"
         case "aarch64":
             return "arm64"
+        case "arm64":
+            return "arm64"
         case "arm64v8":
             return "arm64"
         case "x86_64":
