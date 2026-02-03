@@ -448,11 +448,13 @@ def build_script(
     if platform.system() == "Darwin":
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
+    # for Windows
+    args = ["bash", "./ci/scripts/build.sh", *args]
     maybe_build_docker(
         repo_root=repo_root,
         driver_root=driver_root,
         env=env,
-        args=["./ci/scripts/build.sh", *args],
+        args=args,
         ci=ci,
     )
 
