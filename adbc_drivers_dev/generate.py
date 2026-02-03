@@ -64,6 +64,12 @@ class LangBuildConfig(BaseModel):
         description="A list of additional arguments to pass to adbc-make.",
     )
 
+    lang_tools: list[str] = Field(
+        default_factory=list,
+        alias="lang-tools",
+        description="Install tools for these languages to use in the build.",
+    )
+
 
 class LangConfig(BaseModel):
     model_config = {

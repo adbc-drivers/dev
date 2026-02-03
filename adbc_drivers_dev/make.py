@@ -152,11 +152,19 @@ def detect_version(
             raise ValueError(f"{driver_root} is not in a git repository")
         repo_root = repo_root.parent
 
-    prefix = str(driver_root.relative_to(repo_root))
-    if prefix == ".":
+    is_script_build = not any(
+        (driver_root / name).is_file() for name in ("Cargo.toml", "go.mod")
+    )
+    if is_script_build:
+        # We're going to assume custom builds like this are effectively the
+        # entire repo, and use just plain tags "v1.0.0".
         prefix = "v"
     else:
-        prefix = f"{prefix}/v"
+        prefix = str(driver_root.relative_to(repo_root))
+        if prefix == ".":
+            prefix = "v"
+        else:
+            prefix = f"{prefix}/v"
 
     tags = check_output(
         [
