@@ -184,7 +184,8 @@ def detect_version(
     if not tags:
         if strict:
             raise ValueError(f"No tags found for driver {driver_root}")
-        version = "unknown"
+        # use a version that dbc will still accept, not "unknown" like we used to
+        version = "v0.0.1-dev"
     else:
         tag = tags[0]
         version = tag[len(prefix) - 1 :]
