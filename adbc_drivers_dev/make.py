@@ -345,7 +345,7 @@ def build_rust(
 
     env = {}
     # Some env vars need to be explicitly propagated into Docker
-    smuggle_vars = set()
+    smuggle_vars = {"PROTOC"}
 
     if platform.system() == "Darwin":
         # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
@@ -363,6 +363,8 @@ def build_rust(
         for var in smuggle_vars:
             if var in env:
                 smuggle_env += f'{var}="{shlex.quote(env[var])}" '
+            elif var in os.environ:
+                smuggle_env += f'{var}="{shlex.quote(os.environ[var])}" '
 
         command = [
             "docker",

@@ -105,12 +105,16 @@ def generate_workflows(args) -> int:
     langs = {
         "go": ("Go", "go"),
         "rust": ("Rust", "rust"),
+        "script": ("Custom", "src"),
     }
 
+    retcode = 0
     for lang, (lang_human, lang_subdir) in langs.items():
         lang_config = params.lang.get(lang)
         if not lang_config:
             continue
+
+        (args.repository / lang_subdir).mkdir(parents=True, exist_ok=True)
 
         template = env.get_template("test.yaml")
         write_workflow(
@@ -153,6 +157,25 @@ def generate_workflows(args) -> int:
                 },
             )
 
+        template = env.get_template("pixi.toml")
+        write_workflow(
+            args.repository / lang_subdir,
+            template,
+            "pixi.toml",
+            {
+                **params.to_dict(),
+                "lang": lang,
+                "lang_human": lang_human,
+                "lang_subdir": lang_subdir,
+                "lang_config": lang_config,
+            },
+        )
+
+        license_template = args.repository / lang_subdir / "license.tpl"
+        if not license_template.is_file():
+            print(f"Missing {license_template}", file=sys.stderr)
+            retcode = 1
+
         if lang == "go":
             template = env.get_template("golangci.toml")
             write_workflow(
@@ -174,30 +197,6 @@ def generate_workflows(args) -> int:
                 **params.to_dict(),
             },
         )
-
-    template = env.get_template("pixi.toml")
-
-    retcode = 0
-    for lang, enabled in params.lang.items():
-        if not enabled:
-            continue
-        write_workflow(
-            args.repository / lang,
-            template,
-            "pixi.toml",
-            {
-                **params.to_dict(),
-                "lang": lang,
-                "lang_human": lang_human,
-                "lang_subdir": lang_subdir,
-                "lang_config": lang_config,
-            },
-        )
-
-        license_template = args.repository / lang / "license.tpl"
-        if not license_template.is_file():
-            print(f"Missing {license_template}", file=sys.stderr)
-            retcode = 1
 
     return retcode
 
