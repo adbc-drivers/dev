@@ -231,7 +231,7 @@ def maybe_build_docker(
     args: list[str],
     ci: bool,
 ) -> None:
-    if not ci or platform.system() != "Linux":
+    if not ci or platform.system() != "Linux" or to_bool(get_var("DEBUG", "False")):
         check_call(args, cwd=driver_root, env=env)
         return
 
