@@ -35,6 +35,7 @@ adbc-gen-package = "adbc_drivers_dev.package:main"
 adbc-gen-workflow = "adbc_drivers_dev.workflow:main"
 adbc-make = "adbc_drivers_dev.make:main"
 adbc-release = "adbc_drivers_dev.release:main"
+adbc-validation = "adbc_drivers_dev.validation:main"
 
 [build-system]
 requires = ["setuptools >= 77.0.3"]
