@@ -418,7 +418,7 @@ def build_rust(
     if target_name := get_var("TARGET_NAME", ""):
         source_target = f"lib{target_name}.{EXT}"
     if platform.system() == "Windows":
-        source_target = target.removeprefix("lib")
+        source_target = source_target.removeprefix("lib")
     lib = lib / source_target
     info("Copying", lib, "to", repo_root / "build" / target)
 
