@@ -565,7 +565,8 @@ def task_build():
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
-    target = f"libadbc_driver_{driver}.{EXT}"
+    target_name = get_var("TARGET_NAME", f"adbc_driver_{driver}")
+    target = f"lib{target_name}.{EXT}"
 
     if lang == "go":
         actions = [
