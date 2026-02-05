@@ -413,9 +413,14 @@ def build_rust(
         lib = lib / "release"
 
     source_target = target
+    # Exclusion basically just for Databricks - their crate name is not
+    # "adbc_driver_databricks" but rather "databricks_adbc"
+    if target_name := get_var("TARGET_NAME", ""):
+        source_target = f"lib{target_name}.{EXT}"
     if platform.system() == "Windows":
         source_target = target.removeprefix("lib")
     lib = lib / source_target
+    info("Copying", lib, "to", repo_root / "build" / target)
 
     lib.rename(repo_root / "build" / target)
     output = (repo_root / "build" / target).resolve()
@@ -565,8 +570,7 @@ def task_build():
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
-    target_name = get_var("TARGET_NAME", f"adbc_driver_{driver}")
-    target = f"lib{target_name}.{EXT}"
+    target = f"libadbc_driver_{driver}.{EXT}"
 
     if lang == "go":
         actions = [
