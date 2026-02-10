@@ -222,6 +222,7 @@ def maybe_build_docker(
     env: dict[str, str],
     args: list[str],
     ci: bool,
+    container: str,
 ) -> None:
     if not ci or platform.system() != "Linux" or to_bool(get_var("DEBUG", "False")):
         check_call(args, cwd=driver_root, env=env)
@@ -257,11 +258,11 @@ def maybe_build_docker(
 
     command.extend(
         [
-            "manylinux-rust",
+            container,
             "--",
             "bash",
             "-c",
-            f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} {' '.join(args)}",
+            f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} {' '.join(shlex.quote(arg) for arg in args)}",
         ]
     )
     check_call(command, cwd=Path(__file__).parent, env=env)
@@ -313,7 +314,7 @@ def build_go(
         append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=11.0")
         append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=11.0")
 
-    if ci and platform.system() == "Linux":
+    if ci and platform.system() == "Linux" and not to_bool(get_var("DEBUG", "False")):
         check_call(["go", "mod", "vendor"], cwd=driver_root)
         ldflags += (
             " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
@@ -336,6 +337,7 @@ def build_go(
                 "./pkg",
             ],
             ci=ci,
+            container="manylinux",
         )
     else:
         check_call(
@@ -404,6 +406,7 @@ def build_rust(
         env=env,
         args=["cargo", "build", *args],
         ci=ci,
+        container="manylinux-rust",
     )
 
     lib = driver_root / "target"
@@ -481,7 +484,7 @@ def check_linux(binary: Path) -> None:
         ]
     ).splitlines()
 
-    # TODO(https://github.com/adbc-drivers/dev/issues/36): check exported symbols
+    # Make sure only 'Adbc*' symbols are exported
     bad_symbols = []
     for symbol in symbols:
         if " T " not in symbol:
