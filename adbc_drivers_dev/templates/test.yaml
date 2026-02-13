@@ -354,8 +354,10 @@ jobs:
 
       - name: Log in to ghcr.io
         if: runner.os == 'Linux'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Library
 <% if secrets["build:test"] %>
@@ -520,8 +522,10 @@ jobs:
 
       - name: Log in to ghcr.io
         if: runner.os == 'Linux'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Library
         working-directory: <{ lang_subdir }>
