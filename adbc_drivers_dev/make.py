@@ -462,12 +462,27 @@ def build_script(
         # Force use of Git Bash on GitHub Actions
         args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
 
+    toolchain = get_var("TOOLCHAIN", "")
+    if not toolchain:
+        raise ValueError("Must specify TOOLCHAIN=toolchain for script-based build")
+
+    container = {
+        "go": "manylinux",
+        "rust": "manylinux-rust",
+    }.get(toolchain)
+    if container is None:
+        raise ValueError(f"Unsupported TOOLCHAIN={toolchain} for script-based build")
+
+    # if we're using a script, don't invoke docker for Go; the script itself
+    # will invoke docker
+
     maybe_build_docker(
         repo_root=repo_root,
         driver_root=driver_root,
         env=env,
         args=args,
-        ci=ci,
+        ci=ci and toolchain != "go",
+        container=container,
     )
 
     output = (repo_root / "build" / target).resolve()

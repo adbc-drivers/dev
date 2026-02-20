@@ -143,9 +143,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: go/go.mod
+          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
@@ -323,9 +323,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: go/go.mod
+          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
@@ -504,9 +504,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
         with:
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: go/go.mod
+          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
@@ -843,8 +843,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          git tag go/v1000.0.0
-          tag=go/v1000.0.0
+          git tag <{ lang_subdir }>/v1000.0.0
+          tag=<{ lang_subdir }>/v1000.0.0
 
           pixi run release --dry-run $(pwd) $tag
           echo gh release upload $tag $(find ~/packages -name '*.tar.gz') $(find ~/packages -name 'manifest.yaml') $(find ~/packages -name '*.md')
