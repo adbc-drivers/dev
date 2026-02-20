@@ -82,6 +82,11 @@ class LangConfig(BaseModel):
         default_factory=LangBuildConfig,
         description="Configuration for building the driver.",
     )
+    skip_test: bool = Field(
+        default=False,
+        alias="skip-test",
+        description="Whether to skip test workflows (primarily useful for build-only drivers)",
+    )
     skip_validate: bool = Field(
         default=False,
         alias="skip-validate",
