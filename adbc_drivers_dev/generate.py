@@ -64,6 +64,12 @@ class LangBuildConfig(BaseModel):
         description="A list of additional arguments to pass to adbc-make.",
     )
 
+    go_mod_path: str = Field(
+        default="go",
+        alias="go-mod-path",
+        description="Path containing the go.mod file for Go drivers. Used to cache dependencies in CI.",
+    )
+
     lang_tools: list[str] = Field(
         default_factory=list,
         alias="lang-tools",
