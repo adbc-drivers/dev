@@ -43,4 +43,10 @@
     pre-commit autoupdate --freeze --repo https://github.com/golangci/golangci-lint
     ```
 
+  - [ ] Purge the GitHub Actions cache (as otherwise CI will use the previously built version of golangci-lint)
+
+    ```shell
+    gh cache list -k pre-commit --json 'key' | jq -r '.[] | .key' | xargs -n1 gh cache delete
+    ```
+
 [docker-compose-build-workflow]: https://github.com/adbc-drivers/dev/actions/workflows/docker-build.yaml
