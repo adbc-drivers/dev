@@ -88,6 +88,7 @@ defaults:
     shell: bash
 
 jobs:
+<% if not lang_config.skip_test %>
   test:
     name: "Test/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
@@ -265,6 +266,7 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
           go mod tidy --diff
+<% endif %>
 <% endif %>
 
 <% if not lang_config.skip_validate %>
@@ -450,7 +452,9 @@ jobs:
 
   build:
     name: "Build <{driver}>/${{ matrix.platform }}_${{ matrix.arch }}"
+<% if not lang_config.skip_test %>
     needs: test
+<% endif %>
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true
