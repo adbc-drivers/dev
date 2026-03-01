@@ -148,7 +148,7 @@ jobs:
           go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
+      - uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98  # v1.15.3
         with:
           components: "clippy"
 <% endif %>
@@ -328,7 +328,7 @@ jobs:
           go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
+      - uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98  # v1.15.3
         with:
           components: "clippy"
 <% endif %>
@@ -509,7 +509,7 @@ jobs:
           go-version-file: <{lang_config.build.go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
+      - uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98  # v1.15.3
         with:
           components: "clippy"
 <% endif %>
@@ -600,7 +600,7 @@ jobs:
           go-version: "stable"
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c  # v1.15.2
+      - uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98  # v1.15.3
         with:
           components: "clippy"
 <% endif %>
