@@ -62,12 +62,12 @@ jobs:
           pixi-version: v0.50.2
           run-install: false
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "all-packages"
           path: "~/packages"
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "docs"
           path: "~/packages"
