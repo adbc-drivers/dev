@@ -31,7 +31,6 @@ on:
   push:
     branches:
       - main
-  workflow_call: {}
 
 concurrency:
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
@@ -58,19 +57,10 @@ jobs:
           persist-credentials: false
 
       - name: Check PR title format
-        if: github.repository == 'adbc-drivers/dev'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python adbc_drivers_dev/title_check.py $(pwd) "$PR_TITLE"
-
-      - name: Check PR title format
-        if: github.repository != 'adbc-drivers/dev'
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          git clone --depth 1 https://github.com/adbc-drivers/dev
-          python dev/adbc_drivers_dev/title_check.py $(pwd) "$PR_TITLE"
 
   lint:
     name: "lint & pre-commit"

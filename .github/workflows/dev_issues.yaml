@@ -27,7 +27,6 @@ on:
     types:
       - created
       - edited
-  workflow_call: {}
 
 jobs:
   issue_assign:
