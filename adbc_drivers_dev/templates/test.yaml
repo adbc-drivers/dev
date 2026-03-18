@@ -99,7 +99,7 @@ jobs:
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment %>
+<% if environment and "test" in lang_config.build.environment_contexts or "build:test" in lang_config.build.environment_contexts %>
     environment: <{environment}>
 <% endif %>
     permissions:
@@ -279,7 +279,7 @@ jobs:
         include:
           # I think we only need to test one platform, but we can change that later
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
-<% if environment %>
+<% if environment and "validate" in lang_config.build.environment_contexts or "build:test" in lang_config.build.environment_contexts %>
     environment: <{environment}>
 <% endif %>
     permissions:
@@ -468,7 +468,7 @@ jobs:
 <% endif %>
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment %>
+<% if environment and "build:release" in lang_config.build.environment_contexts %>
     environment: <{environment}>
 <% endif %>
     permissions:
@@ -669,7 +669,7 @@ jobs:
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment %>
+<% if environment and "build:test" in lang_config.build.environment_contexts %>
     environment: <{environment}>
 <% endif %>
     steps:
