@@ -76,6 +76,12 @@ class LangBuildConfig(BaseModel):
         description="Install tools for these languages to use in the build.",
     )
 
+    environment_contexts: list[str] = Field(
+        default_factory=lambda: ["test", "validate"],
+        alias="environment-contexts",
+        description="What parts of the build require the environment.",
+    )
+
 
 class LangConfig(BaseModel):
     model_config = {

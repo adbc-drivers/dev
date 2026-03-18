@@ -126,7 +126,7 @@ def generate_workflows(args) -> int:
             f"{lang}_test.yaml",
             {
                 **params.to_dict(),
-                "pull_request_trigger_paths": [".github/workflows/go_test.yaml"],
+                "pull_request_trigger_paths": [f".github/workflows/{lang}_test.yaml"],
                 "release": False,
                 "workflow_name": "Test",
                 "lang": lang,
