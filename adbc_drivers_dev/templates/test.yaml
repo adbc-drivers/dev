@@ -749,7 +749,7 @@ jobs:
           fi
           set +a
 <% if private %>
-          export COLUMNAR_DRIVER_LICENSE_KEY=$(curl --silent --fail -XGET -H 'Content-Type: application/json' -H "Authorization: Bearer $COLUMNAR_CLOUD_API_TOKEN" https://heimdall.columnar.tech/trial_license)
+          export COLUMNAR_DRIVER_LICENSE_KEY=$(curl --silent --fail -XGET -H 'Content-Type: application/json' -H "Authorization: Bearer $COLUMNAR_CLOUD_API_TOKEN" https://heimdall.columnar.tech/license)
 <% endif %>
           pixi exec -s adbc-driver-manager -s pyarrow -s pytest python -m pytest -vs ci/test_package.py
 
