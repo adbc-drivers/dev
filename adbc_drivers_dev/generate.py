@@ -130,7 +130,19 @@ class ValidationConfig(BaseModel):
             "description": """Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:
 
 [validation.extra-dependencies]
-pytest = "^7.0"
+pytest = ">=7,<8"
+black = "*\""""
+        },
+    )
+
+    extra_pypi_dependencies: dict[str, typing.Any] = Field(
+        default_factory=dict,
+        alias="extra-pypi-dependencies",
+        json_schema_extra={
+            "description": """Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:
+
+[validation.extra-pypi-dependencies]
+pytest = ">=7,<8"
 black = "*\""""
         },
     )
@@ -289,7 +301,10 @@ gcloud = true"""
             "permissions": self._permissions,
             "aws": self.aws.model_dump() if self.aws else None,
             "gcloud": self.gcloud,
-            "validation": {"extra_dependencies": self.validation.extra_dependencies},
+            "validation": {
+                "extra_dependencies": self.validation.extra_dependencies,
+                "extra_pypi_dependencies": self.validation.extra_pypi_dependencies,
+            },
         }
 
     def __eq__(self, other: object) -> bool:

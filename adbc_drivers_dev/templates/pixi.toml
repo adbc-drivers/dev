@@ -51,3 +51,6 @@ python = ">=3.13.5,<3.14"
 [pypi-dependencies]
 adbc-drivers-dev = { git = "https://github.com/adbc-drivers/dev" }
 adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
+<% for key, value in validation["extra_pypi_dependencies"].items() %>
+<{key}> = "<{value}>"
+<% endfor %>

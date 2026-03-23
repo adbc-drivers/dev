@@ -35,6 +35,7 @@ def test_model_default() -> None:
     assert config.aws is None
     assert config.gcloud is False
     assert config.validation.extra_dependencies == {}
+    assert config.validation.extra_pypi_dependencies == {}
 
     assert config.to_dict() == {
         "driver": "(unknown)",
@@ -51,7 +52,10 @@ def test_model_default() -> None:
         "permissions": {},
         "aws": None,
         "gcloud": False,
-        "validation": {"extra_dependencies": {}},
+        "validation": {
+            "extra_dependencies": {},
+            "extra_pypi_dependencies": {},
+        },
     }
 
     assert config == GenerateConfig.model_validate({})
@@ -211,11 +215,19 @@ def test_validation_config_alias() -> None:
         {"validation": {"extra-dependencies": {"pytest": "^7.0", "black": "*"}}}
     )
     assert config.validation.extra_dependencies == {"pytest": "^7.0", "black": "*"}
+    assert config.validation.extra_pypi_dependencies == {}
 
     config = GenerateConfig.model_validate(
         {"validation": {"extra_dependencies": {"mypy": "^1.0"}}}
     )
     assert config.validation.extra_dependencies == {"mypy": "^1.0"}
+    assert config.validation.extra_pypi_dependencies == {}
+
+    config = GenerateConfig.model_validate(
+        {"validation": {"extra_pypi_dependencies": {"mypy": ">=1.0"}}}
+    )
+    assert config.validation.extra_dependencies == {}
+    assert config.validation.extra_pypi_dependencies == {"mypy": ">=1.0"}
 
 
 def test_params_aws_and_gcloud() -> None:
@@ -254,7 +266,10 @@ def test_default_model() -> None:
     assert config["lang"] == {}
     assert config["secrets"] == {}
     assert config["gcloud"] is False
-    assert config["validation"] == {"extra-dependencies": {}}
+    assert config["validation"] == {
+        "extra-dependencies": {},
+        "extra-pypi-dependencies": {},
+    }
 
     # Should not include None values (environment, aws)
     assert "environment" not in config
