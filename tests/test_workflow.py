@@ -39,6 +39,7 @@ def test_model_default() -> None:
 
     assert config.to_dict() == {
         "driver": "(unknown)",
+        "repository": "(unknown)",
         "environment": None,
         "private": False,
         "lang": {},
@@ -278,3 +279,13 @@ def test_default_model() -> None:
     # Should not include private fields
     assert "_processed_secrets" not in config
     assert "_permissions" not in config
+
+
+def test_repository_override() -> None:
+    config = GenerateConfig.model_validate({"driver": "foo"})
+    assert config.driver == "foo"
+    assert config.repository == "foo"
+
+    config = GenerateConfig.model_validate({"driver": "foo", "repository": "bar"})
+    assert config.driver == "foo"
+    assert config.repository == "bar"

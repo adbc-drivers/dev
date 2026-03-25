@@ -160,6 +160,11 @@ class GenerateConfig(BaseModel):
         },
     }
 
+    repository: str | None = Field(
+        default=None,
+        description="GitHub repository name (if different from driver name)",
+    )
+
     driver: str = Field(
         default="(unknown)",
         description="Driver name. Should be lowercase (e.g., postgresql, sqlite)",
@@ -247,6 +252,12 @@ gcloud = true"""
         }
 
     @model_validator(mode="after")
+    def default_repository(self) -> "GenerateConfig":
+        if self.repository is None:
+            self.repository = self.driver
+        return self
+
+    @model_validator(mode="after")
     def process_secrets_and_permissions(self) -> "GenerateConfig":
         """Process secrets configuration and set up permissions."""
         self._processed_secrets = {context: {} for context in WORKFLOW_CONTEXTS}
@@ -294,6 +305,7 @@ gcloud = true"""
     def to_dict(self) -> dict[str, typing.Any]:
         return {
             "driver": self.driver,
+            "repository": self.repository,
             "environment": self.environment,
             "private": self.private,
             "lang": self.lang,
