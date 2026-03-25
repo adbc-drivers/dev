@@ -71,7 +71,7 @@ jobs:
           echo "**Remote:** ${{ steps.get_repo.outputs.repository }}@${{ inputs.ref }}" >> $GITHUB_STEP_SUMMARY
 
   test:
-    uses: adbc-drivers/<{driver}>/.github/workflows/go_test.yaml@main
+    uses: adbc-drivers/<{repository}>/.github/workflows/go_test.yaml@main
     needs:
       - setup
     with:
