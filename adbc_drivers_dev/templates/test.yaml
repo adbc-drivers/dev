@@ -619,18 +619,11 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
 <% if "go" in lang_tools %>
+          # XXX: Google has effectively abandoned go-licenses, and it broke
           # XXX: can't install go-licenses under go 1.25
+          # Use our fork instead
           # https://github.com/google/go-licenses/issues/312
-          git clone --depth=1 https://github.com/google/go-licenses
-          git config --global --add 'url.https://github.com/.insteadOf' ssh://git@github.com/
-          pushd go-licenses
-          go get -u
-          # Silent break: https://github.com/spf13/cobra/pull/2303
-          # Manually edit the go.mod to get around this for now
-          sed -i 's|github.com/spf13/pflag v1.0.8|github.com/spf13/pflag v1.0.7|g' go.mod
-          go mod tidy
-          go install .
-          popd
+          go install github.com/lidavidm/go-licenses@master
 <% endif %>
 <% if "rust" in lang_tools %>
           cargo install cargo-about
