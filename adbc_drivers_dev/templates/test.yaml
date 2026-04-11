@@ -34,7 +34,7 @@ on:
     branches:
       - main
     paths:
-      - "<{lang_subdir}>/**"
+      - "<{lang_path_glob}>"
 <% for path in pull_request_trigger_paths %>
       - <{path}>
 <% endfor %>
@@ -42,12 +42,12 @@ on:
   push:
 <% if release %>
     tags:
-      - "<{lang_subdir}>/v**"
+      - "<{lang_tag_prefix}>v**"
 <% else %>
     branches:
       - main
     paths:
-      - "<{lang_subdir}>/**"
+      - "<{lang_path_glob}>"
 <% for path in pull_request_trigger_paths %>
       - <{path}>
 <% endfor %>
@@ -143,9 +143,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4
@@ -323,9 +323,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4
@@ -504,9 +504,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4
@@ -836,8 +836,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          git tag <{ lang_subdir }>/v1000.0.0
-          tag=<{ lang_subdir }>/v1000.0.0
+          git tag <{lang_tag_prefix}>v1000.0.0
+          tag=<{lang_tag_prefix}>v1000.0.0
 
           pixi run release --dry-run $(pwd) $tag
           echo gh release upload $tag $(find ~/packages -name '*.tar.gz') $(find ~/packages -name 'manifest.yaml') $(find ~/packages -name '*.md')
@@ -847,8 +847,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          git tag <{ lang_subdir }>/v1000.0.0
-          tag=<{ lang_subdir }>/v1000.0.0
+          git tag <{lang_tag_prefix}>v1000.0.0
+          tag=<{lang_tag_prefix}>v1000.0.0
 
           pixi run release --dry-run $(pwd) $tag
           echo gh release upload $tag $(find ~/packages -name '*.tar.gz') $(find ~/packages -name 'manifest.yaml') $(find ~/packages -name '*.md')

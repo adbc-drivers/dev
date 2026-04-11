@@ -109,10 +109,18 @@ def generate_workflows(args) -> int:
     }
 
     retcode = 0
-    for lang, (lang_human, lang_subdir) in langs.items():
+    for lang, (lang_human, lang_subdir_default) in langs.items():
         lang_config = params.lang.get(lang)
         if not lang_config:
             continue
+
+        lang_subdir = (
+            lang_config.subdir
+            if lang_config.subdir is not None
+            else lang_subdir_default
+        )
+        lang_tag_prefix = "" if lang_subdir == "." else f"{lang_subdir}/"
+        lang_path_glob = "**" if lang_subdir == "." else f"{lang_subdir}/**"
 
         (args.repository / lang_subdir).mkdir(parents=True, exist_ok=True)
 
@@ -120,20 +128,27 @@ def generate_workflows(args) -> int:
         lang_tools.update(lang_config.build.lang_tools)
 
         template = env.get_template("test.yaml")
+        go_mod_path = lang_config.build.go_mod_path or lang_subdir
+        lang_ctx = {
+            "lang": lang,
+            "lang_human": lang_human,
+            "lang_subdir": lang_subdir,
+            "lang_tag_prefix": lang_tag_prefix,
+            "lang_path_glob": lang_path_glob,
+            "go_mod_path": go_mod_path,
+            "lang_config": lang_config,
+            "lang_tools": lang_tools,
+        }
         write_workflow(
             workflows,
             template,
             f"{lang}_test.yaml",
             {
                 **params.to_dict(),
+                **lang_ctx,
                 "pull_request_trigger_paths": [f".github/workflows/{lang}_test.yaml"],
                 "release": False,
                 "workflow_name": "Test",
-                "lang": lang,
-                "lang_human": lang_human,
-                "lang_subdir": lang_subdir,
-                "lang_config": lang_config,
-                "lang_tools": lang_tools,
             },
         )
         write_workflow(
@@ -142,13 +157,9 @@ def generate_workflows(args) -> int:
             f"{lang}_release.yaml",
             {
                 **params.to_dict(),
+                **lang_ctx,
                 "release": True,
                 "workflow_name": "Release",
-                "lang": lang,
-                "lang_human": lang_human,
-                "lang_subdir": lang_subdir,
-                "lang_config": lang_config,
-                "lang_tools": lang_tools,
             },
         )
         template = env.get_template("go_test_pr.yaml")
@@ -169,10 +180,7 @@ def generate_workflows(args) -> int:
             "pixi.toml",
             {
                 **params.to_dict(),
-                "lang": lang,
-                "lang_human": lang_human,
-                "lang_subdir": lang_subdir,
-                "lang_config": lang_config,
+                **lang_ctx,
             },
         )
 
