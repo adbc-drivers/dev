@@ -143,9 +143,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4
@@ -323,9 +323,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4
@@ -504,9 +504,9 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
-          cache-dependency-path: <{lang_config.build.go_mod_path}>/go.sum
+          cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
-          go-version-file: <{lang_config.build.go_mod_path}>/go.mod
+          go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606  # v1.15.4

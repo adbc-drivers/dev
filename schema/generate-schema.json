@@ -28,10 +28,17 @@
           "type": "array"
         },
         "go-mod-path": {
-          "default": "go",
-          "description": "Path containing the go.mod file for Go drivers. Used to cache dependencies in CI.",
-          "title": "Go-Mod-Path",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path containing the go.mod file for Go drivers. Used to cache dependencies in CI. Defaults to the language subdir.",
+          "title": "Go-Mod-Path"
         },
         "lang-tools": {
           "description": "Install tools for these languages to use in the build.",
