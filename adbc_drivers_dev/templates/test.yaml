@@ -34,7 +34,7 @@ on:
     branches:
       - main
     paths:
-      - "<{lang_subdir}>/**"
+      - "<{lang_path_glob}>"
 <% for path in pull_request_trigger_paths %>
       - <{path}>
 <% endfor %>
@@ -42,12 +42,12 @@ on:
   push:
 <% if release %>
     tags:
-      - "<{lang_subdir}>/v**"
+      - "<{lang_tag_prefix}>v**"
 <% else %>
     branches:
       - main
     paths:
-      - "<{lang_subdir}>/**"
+      - "<{lang_path_glob}>"
 <% for path in pull_request_trigger_paths %>
       - <{path}>
 <% endfor %>
@@ -836,8 +836,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          git tag <{ lang_subdir }>/v1000.0.0
-          tag=<{ lang_subdir }>/v1000.0.0
+          git tag <{lang_tag_prefix}>v1000.0.0
+          tag=<{lang_tag_prefix}>v1000.0.0
 
           pixi run release --dry-run $(pwd) $tag
           echo gh release upload $tag $(find ~/packages -name '*.tar.gz') $(find ~/packages -name 'manifest.yaml') $(find ~/packages -name '*.md')
@@ -847,8 +847,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          git tag <{ lang_subdir }>/v1000.0.0
-          tag=<{ lang_subdir }>/v1000.0.0
+          git tag <{lang_tag_prefix}>v1000.0.0
+          tag=<{lang_tag_prefix}>v1000.0.0
 
           pixi run release --dry-run $(pwd) $tag
           echo gh release upload $tag $(find ~/packages -name '*.tar.gz') $(find ~/packages -name 'manifest.yaml') $(find ~/packages -name '*.md')

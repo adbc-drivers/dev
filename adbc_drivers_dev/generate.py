@@ -94,6 +94,10 @@ class LangConfig(BaseModel):
         default_factory=LangBuildConfig,
         description="Configuration for building the driver.",
     )
+    subdir: str | None = Field(
+        default=None,
+        description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",
+    )
     skip_test: bool = Field(
         default=False,
         alias="skip-test",
