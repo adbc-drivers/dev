@@ -114,7 +114,11 @@ def generate_workflows(args) -> int:
         if not lang_config:
             continue
 
-        lang_subdir = lang_config.subdir if lang_config.subdir is not None else lang_subdir_default
+        lang_subdir = (
+            lang_config.subdir
+            if lang_config.subdir is not None
+            else lang_subdir_default
+        )
         lang_tag_prefix = "" if lang_subdir == "." else f"{lang_subdir}/"
         lang_path_glob = "**" if lang_subdir == "." else f"{lang_subdir}/**"
 
