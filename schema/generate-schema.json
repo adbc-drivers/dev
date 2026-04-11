@@ -16,6 +16,79 @@
       "title": "AwsConfig",
       "type": "object"
     },
+    "LangBuildConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "additional-make-args": {
+          "description": "A list of additional arguments to pass to adbc-make.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Additional-Make-Args",
+          "type": "array"
+        },
+        "go-mod-path": {
+          "default": "go",
+          "description": "Path containing the go.mod file for Go drivers. Used to cache dependencies in CI.",
+          "title": "Go-Mod-Path",
+          "type": "string"
+        },
+        "lang-tools": {
+          "description": "Install tools for these languages to use in the build.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Lang-Tools",
+          "type": "array"
+        },
+        "environment-contexts": {
+          "description": "What parts of the build require the environment.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Environment-Contexts",
+          "type": "array"
+        }
+      },
+      "title": "LangBuildConfig",
+      "type": "object"
+    },
+    "LangConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "build": {
+          "$ref": "#/$defs/LangBuildConfig",
+          "description": "Configuration for building the driver."
+        },
+        "subdir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override the default subdirectory for this language. Use '.' to place files at the repository root.",
+          "title": "Subdir"
+        },
+        "skip-test": {
+          "default": false,
+          "description": "Whether to skip test workflows (primarily useful for build-only drivers)",
+          "title": "Skip-Test",
+          "type": "boolean"
+        },
+        "skip-validate": {
+          "default": false,
+          "description": "Whether to skip the validation suite in CI (this should only be used temporarily while setting up a driver)",
+          "title": "Skip-Validate",
+          "type": "boolean"
+        }
+      },
+      "title": "LangConfig",
+      "type": "object"
+    },
     "SecretConfigDict": {
       "additionalProperties": false,
       "description": "Secret configuration with explicit secret name and contexts.",
@@ -29,6 +102,7 @@
           "description": "Workflow contexts where this secret should be available",
           "items": {
             "enum": [
+              "build:test",
               "build:release",
               "test",
               "validate"
@@ -51,8 +125,14 @@
       "properties": {
         "extra-dependencies": {
           "additionalProperties": true,
-          "description": "Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:\n\n[validation.extra-dependencies]\npytest = \"^7.0\"\nblack = \"*\"",
+          "description": "Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:\n\n[validation.extra-dependencies]\npytest = \">=7,<8\"\nblack = \"*\"",
           "title": "Extra-Dependencies",
+          "type": "object"
+        },
+        "extra-pypi-dependencies": {
+          "additionalProperties": true,
+          "description": "Additional dependencies to install for validation workflows. Specify as key-value pairs. Example:\n\n[validation.extra-pypi-dependencies]\npytest = \">=7,<8\"\nblack = \"*\"",
+          "title": "Extra-Pypi-Dependencies",
           "type": "object"
         }
       },
@@ -64,6 +144,19 @@
   "additionalProperties": false,
   "description": "You can validate your generate.toml against this schema with tools like tombi (https://tombi-toml.github.io/tombi/docs/linter). Requires placing a `#:schema` directive at the top of your generate.toml file.",
   "properties": {
+    "repository": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "GitHub repository name (if different from driver name)",
+      "title": "Repository"
+    },
     "driver": {
       "default": "(unknown)",
       "description": "Driver name. Should be lowercase (e.g., postgresql, sqlite)",
@@ -85,15 +178,22 @@
     },
     "private": {
       "default": false,
-      "description": "Whether the driver is private. Most drivers will be non-private.",
+      "description": "Whether the driver is private. Most drivers will be not be private so you can omit this.",
       "title": "Private",
       "type": "boolean"
     },
     "lang": {
       "additionalProperties": {
-        "type": "boolean"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LangConfig"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
-      "description": "Programming languages to enable workflows for. Only go is really supported right now. Keys should be lowercase. Set to true to enable, false to disable. Example:\n\n[lang]\ngo = true\npython = false",
+      "description": "Programming language(s) to enable workflows for. Only go and rust are supported. Keys should be lowercase. Set to true to enable with default config, or false (the default) to disable. Example:\n\n[lang]\ngo = true\n\n[lang.rust.build]\nadditional-make-args = [\"example\"]",
       "title": "Lang",
       "type": "object"
     },
@@ -108,7 +208,7 @@
           }
         ]
       },
-      "description": "Secrets to enable in workflows. By default, no secrets are available in your generated workflows unless you specify them here.\n\nFor a secret available in all workflows, use simple syntax:\n\n[secrets]\nMY_TOKEN = \"GITHUB_SECRET_NAME\"\n\nTo restrict secrets to specific workflows, use contexts (valid values: 'build:release', 'test', 'validate'):\n\n[secrets.DB_PASSWORD]\nsecret = \"TEST_DB_SECRET\"\ncontexts = [\"test\", \"validate\"]",
+      "description": "Secrets to enable in workflows. By default, no secrets are available in your generated workflows unless you specify them here.\n\nTo make a secret available in all workflows, use the simple syntax:\n\n[secrets]\nMY_TOKEN = \"GITHUB_SECRET_NAME\"\n\nIf you want more fine-grained control, you can restrict secrets to specific workflows. To do this, specify contexts contexts ('build:release', 'test', 'validate') like this:\n\n[secrets.DB_PASSWORD]\nsecret = \"TEST_DB_SECRET\"\ncontexts = [\"test\", \"validate\"]",
       "title": "Secrets",
       "type": "object"
     },
@@ -122,7 +222,7 @@
         }
       ],
       "default": null,
-      "description": "Enables AWS authentication in workflows. Automatically adds AWS_ROLE and AWS_ROLE_SESSION_NAME secrets, and sets id_token permissions. Example:\n\naws.region = \"us-west-2\"\n\nOr:\n\n[aws]\nregion = \"us-west-2\""
+      "description": "Enables AWS authentication in workflows. Automatically adds AWS_ROLE and AWS_ROLE_SESSION_NAME secrets, and sets id_token permissions. Example:\n\n[aws]\nregion = \"us-west-2\""
     },
     "gcloud": {
       "default": false,
