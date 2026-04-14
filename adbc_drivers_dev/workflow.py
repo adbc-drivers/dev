@@ -208,6 +208,7 @@ def generate_workflows(args) -> int:
             dev,
             {
                 **params.to_dict(),
+                "go_mod_path": go_mod_path,
             },
         )
 
