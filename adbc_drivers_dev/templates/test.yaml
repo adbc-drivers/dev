@@ -461,11 +461,7 @@ jobs:
       matrix:
         include:
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
-<% if private %>
-          - { platform: linux, arch: arm64, runner: private-ubuntu-24.04-arm }
-<% else %>
           - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
-<% endif %>
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
 <% if environment and "build:release" in lang_config.build.environment_contexts %>
