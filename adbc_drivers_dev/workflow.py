@@ -128,7 +128,7 @@ def generate_workflows(args) -> int:
         lang_tools.update(lang_config.build.lang_tools)
 
         template = env.get_template("test.yaml")
-        go_mod_path = lang_config.build.go_mod_path or lang_subdir
+        go_mod_path = (lang_config.build.go_mod_path or lang_subdir) if lang == "go" else langs["go"][1]
         lang_ctx = {
             "lang": lang,
             "lang_human": lang_human,
