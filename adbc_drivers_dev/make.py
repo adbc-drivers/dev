@@ -283,7 +283,8 @@ def build_go(
     prop = "github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion"
     ldflags = " ".join(
         [
-            "-s",
+            # Don't exclude symbols (-s) so panics will have symbol information
+            # This will exclude DWARF debug tables (-w).
             "-w",
             f"-X {prop}={version}",
         ]
