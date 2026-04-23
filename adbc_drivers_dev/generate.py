@@ -83,6 +83,44 @@ class LangBuildConfig(BaseModel):
     )
 
 
+class LangValidateSpec(BaseModel):
+    """A single config to validate."""
+
+    model_config = {
+        "extra": "forbid",
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
+
+    service_name: str = Field(
+        default="test-service",
+        description="docker-compose service to start",
+    )
+    vendor_version: str = Field(
+        default="",
+        description="version to pass to the validation suite",
+    )
+
+
+class LangValidateConfig(BaseModel):
+    """Options for validation suite."""
+
+    model_config = {
+        "extra": "forbid",
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
+
+    skip: bool = Field(
+        default=False,
+        description="Whether to skip the validation suite in CI (this should only be used temporarily while setting up a driver)",
+    )
+    configs: list[LangValidateSpec] = Field(
+        default_factory=lambda: [LangValidateSpec()],
+        description="A list of configurations to run the validation suite with. Each configuration will be run in a separate job",
+    )
+
+
 class LangConfig(BaseModel):
     model_config = {
         "extra": "forbid",
@@ -98,15 +136,14 @@ class LangConfig(BaseModel):
         default=None,
         description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",
     )
+    validate: LangValidateConfig = Field(
+        default_factory=LangValidateConfig,
+        description="Configuration for the driver validation suite.",
+    )
     skip_test: bool = Field(
         default=False,
         alias="skip-test",
         description="Whether to skip test workflows (primarily useful for build-only drivers)",
-    )
-    skip_validate: bool = Field(
-        default=False,
-        alias="skip-validate",
-        description="Whether to skip the validation suite in CI (this should only be used temporarily while setting up a driver)",
     )
 
     @model_validator(mode="before")

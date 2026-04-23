@@ -269,16 +269,18 @@ jobs:
 <% endif %>
 <% endif %>
 
-<% if not lang_config.skip_validate %>
+<% if not lang_config.validate.skip %>
   validate:
-    name: "Validate/${{ matrix.platform }}_${{ matrix.arch }}"
+    name: "Validate <{driver}> ${{ matrix.vendor_version }}/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true
       matrix:
         include:
           # I think we only need to test one platform, but we can change that later
-          - { platform: linux, arch: amd64, runner: ubuntu-latest }
+<% for config in lang_config.validate.configs %>
+          - { platform: linux, arch: amd64, runner: ubuntu-latest, service_name: "<{config.service_name}>", vendor_version: "<{config.vendor_version}>" }
+<% endfor %>
 <% if environment and "validate" in lang_config.build.environment_contexts or "build:test" in lang_config.build.environment_contexts %>
     environment: <{environment}>
 <% endif %>
@@ -390,10 +392,10 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
           if [[ -f compose.yaml ]]; then
-            if ! docker compose up --detach --wait test-service; then
+            if ! docker compose up --detach --wait ${{ matrix.service_name }}; then
               echo "Service failed to start"
               echo "Logs:"
-              docker compose logs test-service
+              docker compose logs ${{ matrix.service_name }}
               exit 1
             fi
           fi
@@ -422,11 +424,15 @@ jobs:
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }}
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} ${{ matrix.service_name }}
           fi
 
           docker ps
-          pixi run validate
+          if [[ -n "${{ matrix.vendor_version }}" ]]; then
+            pixi run validate --vendor-version "${{ matrix.vendor_version }}"
+          else
+            pixi run validate
+          fi
 
           if [[ -f ci/scripts/post-test.sh ]]; then
             ./ci/scripts/post-test.sh
@@ -752,7 +758,7 @@ jobs:
     needs:
       - package
       - test-packages
-<% if not lang_config.skip_validate %>
+<% if not lang_config.validate.skip %>
       - validate
 <% endif %>
     permissions:
@@ -798,7 +804,7 @@ jobs:
           name: "all-packages"
           path: "~/packages"
 
-<% if not lang_config.skip_validate %>
+<% if not lang_config.validate.skip %>
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: "docs"
