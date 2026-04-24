@@ -102,7 +102,7 @@ class LangValidateSpec(BaseModel):
     )
 
 
-class LangValidateConfig(BaseModel):
+class LangValidationConfig(BaseModel):
     """Options for validation suite."""
 
     model_config = {
@@ -136,8 +136,8 @@ class LangConfig(BaseModel):
         default=None,
         description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",
     )
-    validate: LangValidateConfig = Field(
-        default_factory=LangValidateConfig,
+    validation: LangValidationConfig = Field(
+        default_factory=LangValidationConfig,
         description="Configuration for the driver validation suite.",
     )
     skip_test: bool = Field(
