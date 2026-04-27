@@ -87,6 +87,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 jobs:
 <% if not lang_config.skip_test %>
   test:
@@ -143,6 +146,7 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
+          cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
           go-version-file: <{go_mod_path}>/go.mod
@@ -178,7 +182,7 @@ jobs:
 <% if secrets["build:test"] %>
         env:
 <% for name, val in secrets["build:test"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
         working-directory: <{ lang_subdir }>
@@ -224,7 +228,7 @@ jobs:
 <% if secrets["test"] %>
         env:
 <% for name, val in secrets["test"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
         working-directory: <{ lang_subdir }>
@@ -325,6 +329,7 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
+          cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
           go-version-file: <{go_mod_path}>/go.mod
@@ -361,13 +366,13 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
 
       - name: Build Library
 <% if secrets["build:test"] %>
         env:
 <% for name, val in secrets["build:test"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
         working-directory: <{ lang_subdir }>
@@ -405,7 +410,7 @@ jobs:
 <% if secrets["validate"] %>
         env:
 <% for name, val in secrets["validate"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
         working-directory: <{ lang_subdir }>
@@ -508,6 +513,7 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
+          cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
           check-latest: true
           go-version-file: <{go_mod_path}>/go.mod
@@ -533,14 +539,14 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
 
       - name: Build Library
         working-directory: <{ lang_subdir }>
 <% if secrets["build:release"] %>
         env:
 <% for name, val in secrets["build:release"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
         run: |
@@ -604,6 +610,7 @@ jobs:
 <% if "go" in lang_tools %>
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
+          cache: <{"false" if release else "true"}>
           check-latest: true
           go-version: "stable"
 <% endif %>
@@ -699,6 +706,7 @@ jobs:
       # for now, install dbc from main
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
+          cache: <{"false" if release else "true"}>
           go-version: 'stable'
       - uses: prefix-dev/setup-pixi@1b2de7f3351f171c8b4dfeb558c639cb58ed4ec0  # v0.9.5
         with:
@@ -748,11 +756,11 @@ jobs:
 <% if private or secrets["build:test"] %>
         env:
 <% if private %>
-          COLUMNAR_CLOUD_API_TOKEN: ${{ secrets.COLUMNAR_CLOUD_API_TOKEN }}
+          COLUMNAR_CLOUD_API_TOKEN: ${{ secrets.COLUMNAR_CLOUD_API_TOKEN }} # zizmor: ignore[secrets-outside-env]
 <% endif %>
 <% if secrets["build:test"] %>
 <% for name, val in secrets["build:test"].items() %>
-          <{name}>: ${{ secrets.<{val}> }}
+          <{name}>: ${{ secrets.<{val}> }} # zizmor: ignore[secrets-outside-env]
 <% endfor %>
 <% endif %>
 <% endif %>
@@ -846,8 +854,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: <{ lang_subdir }>
         run: |
-          ref=${{ github.ref }}
-          tag=${ref#"refs/tags/"}
+          tag="${GITHUB_REF_NAME}"
 <% if lang == "rust" %>
           declared_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           if [[ "${declared_version}" != "${tag#*v}" ]];
