@@ -97,7 +97,7 @@ class LangValidateSpec(BaseModel):
         description="docker-compose service to start",
     )
     vendor_version: str = Field(
-        default="",
+        default="latest",
         description="version to pass to the validation suite",
     )
 
