@@ -51,7 +51,7 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -68,17 +68,12 @@ jobs:
     if: "github.event.action != 'edited'"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@v6
-        with:
-          check-latest: true
-          go-version: "stable"
-
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.x"
 
@@ -86,7 +81,7 @@ jobs:
         run: pip install pre-commit
 
       - name: pre-commit (cache)
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -94,3 +89,8 @@ jobs:
       - name: pre-commit
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure --verbose
+
+      - name: Analyze workflows with zizmor
+        uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2
+        with:
+          advanced-security: false
