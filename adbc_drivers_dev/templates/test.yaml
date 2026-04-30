@@ -641,7 +641,7 @@ jobs:
           go install github.com/lidavidm/go-licenses@master
 <% endif %>
 <% if "rust" in lang_tools %>
-          cargo install cargo-about
+          cargo install cargo-about@0.9.0 --locked -F cli
 <% endif %>
 
       - name: Generate packages
