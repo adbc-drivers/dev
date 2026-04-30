@@ -226,7 +226,7 @@ def latest_action_version(action: str) -> (packaging.version.Version, str, str):
         [
             "git",
             "ls-remote",
-            "--refs",
+            # don't use --refs which will hide the commit behind annotated tags
             "--tags",
             "--exit-code",
             "--quiet",
@@ -234,15 +234,26 @@ def latest_action_version(action: str) -> (packaging.version.Version, str, str):
         ],
         text=True,
     )
-    tags = []
+    # do some remapping: we may have both refs/tags/v9 and refs/tags/v9^{}
+    # when the remote uses annotated tags. we want to keep only the latter if
+    # it exists
+
+    # raw ref: sha
+    refs = {}
     for line in result.strip().splitlines():
         sha, ref = line.split()
-        tag = ref.removeprefix("refs/tags/")
-
+        tag = ref.removeprefix("refs/tags/").removesuffix("^{}")
         if tag == "master" or "-node" in tag or tag == "testEnableForGHES":
             # aws-actions/configure-aws-credentials, others have weird tags
             continue
+        refs[ref] = (sha, tag)
 
+    for ref in list(refs):
+        if ref.endswith("^{}") and ref[:-3] in refs:
+            del refs[ref[:-3]]
+
+    tags = []
+    for ref, (sha, tag) in refs.items():
         version = packaging.version.parse(tag.lstrip("v"))
         tags.append((version, tag, sha))
 
