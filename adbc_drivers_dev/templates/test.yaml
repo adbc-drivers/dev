@@ -154,6 +154,7 @@ jobs:
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
         with:
+          cache: <{"false" if release else "true"}>
           components: "clippy"
 <% endif %>
 
@@ -337,6 +338,7 @@ jobs:
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
         with:
+          cache: <{"false" if release else "true"}>
           components: "clippy"
 <% endif %>
 
@@ -521,6 +523,7 @@ jobs:
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
         with:
+          cache: <{"false" if release else "true"}>
           components: "clippy"
 <% endif %>
 
@@ -617,6 +620,7 @@ jobs:
 <% if "rust" in lang_tools %>
       - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
         with:
+          cache: <{"false" if release else "true"}>
           components: "clippy"
 <% endif %>
 
