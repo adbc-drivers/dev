@@ -152,7 +152,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
+      - uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6  # v1.16.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -165,7 +165,7 @@ jobs:
 
 <% if aws %>
       - name: AWS Login
-        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37  # v6.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885  # v6.1.1
         with:
           aws-region: <{aws.region}>
           role-to-assume: ${{ secrets.aws_role }}
@@ -336,7 +336,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
+      - uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6  # v1.16.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -349,7 +349,7 @@ jobs:
 
 <% if aws %>
       - name: AWS Login
-        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37  # v6.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885  # v6.1.1
         with:
           aws-region: <{aws.region}>
           role-to-assume: ${{ secrets.aws_role }}
@@ -521,7 +521,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
+      - uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6  # v1.16.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -618,7 +618,7 @@ jobs:
           go-version: "stable"
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7  # v1.16.0
+      - uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6  # v1.16.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
