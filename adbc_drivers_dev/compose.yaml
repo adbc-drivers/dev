@@ -13,6 +13,19 @@
 # limitations under the License.
 
 services:
+  manylinux-cpp:
+    # Raise manylinux baseline to get newer GCC
+    image: ghcr.io/adbc-drivers/dev:manylinux_2_28-cpp${GO}
+    build:
+      context: ./compose/manylinux-cpp
+      args:
+        MANYLINUX: manylinux_2_28
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    volumes:
+      - ${SOURCE_ROOT:-.}:/source:rw
+
   manylinux:
     image: ghcr.io/adbc-drivers/dev:${MANYLINUX}-go${GO}
     build:

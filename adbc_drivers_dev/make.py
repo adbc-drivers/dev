@@ -468,6 +468,7 @@ def build_script(
         raise ValueError("Must specify TOOLCHAIN=toolchain for script-based build")
 
     container = {
+        "cpp": "manylinux-cpp",
         "go": "manylinux",
         "rust": "manylinux-rust",
     }.get(toolchain)

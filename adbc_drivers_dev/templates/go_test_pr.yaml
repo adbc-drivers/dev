@@ -45,9 +45,6 @@ defaults:
 
 permissions:
   contents: read
-<% if permissions.get("id_token") %>
-  id-token: write
-<% endif %>
   packages: read
   pull-requests: read
 
@@ -82,6 +79,10 @@ jobs:
     with:
       repository: ${{ needs.setup.outputs.repository }}
       ref: ${{ inputs.ref }}
+<% if permissions.get("id_token") %>
+    permissions:
+      id-token: write
+<% endif %>
     secrets:
       # https://github.com/orgs/community/discussions/25238#discussioncomment-3247035
 <% for name, val in secrets["all"].items() %>
