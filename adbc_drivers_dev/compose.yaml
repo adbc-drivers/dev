@@ -20,6 +20,8 @@ services:
       context: ./compose/manylinux-cpp
       args:
         MANYLINUX: manylinux_2_28
+        VCPKG_REVISION: ${VCPKG_REVISION}
+        VCPKG_SHALLOW_SINCE: ${VCPKG_SHALLOW_SINCE}
       platforms:
         - linux/amd64
         - linux/arm64

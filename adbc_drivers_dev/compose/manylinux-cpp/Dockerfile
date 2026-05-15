@@ -21,6 +21,7 @@ RUN ulimit -n 1024 && \
       automake \
       binutils \
       cmake \
+      curl \
       gcc \
       gcc-c++ \
       make \
@@ -28,12 +29,27 @@ RUN ulimit -n 1024 && \
       patch \
       patchutils \
       pkgconfig \
+      tar \
+      unzip \
       wget \
+      zip \
       && \
     yum clean all
 ENV PATH="/usr/local/go/bin:${PATH}"
 
+ARG VCPKG_REVISION
+ARG VCPKG_SHALLOW_SINCE
 ARG TARGETPLATFORM
+
+ENV VCPKG_ROOT=/opt/vcpkg
+
+RUN git clone --shallow-since="${VCPKG_SHALLOW_SINCE}" https://github.com/microsoft/vcpkg "${VCPKG_ROOT}" \
+    && cd "${VCPKG_ROOT}" \
+    && git checkout --detach "${VCPKG_REVISION}" \
+    && test "$(git rev-parse HEAD)" = "${VCPKG_REVISION}" \
+    && ./bootstrap-vcpkg.sh -disableMetrics \
+    && chmod -R a+rwX "${VCPKG_ROOT}"
+ENV PATH="${VCPKG_ROOT}:${PATH}"
 
 RUN git config --global --add safe.directory /source \
     && cp /root/.gitconfig /.gitconfig \
