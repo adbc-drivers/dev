@@ -24,10 +24,13 @@ RUN ulimit -n 1024 && \
       curl \
       gcc \
       gcc-c++ \
+      kernel-devel \
       make \
       ninja-build \
       patch \
       patchutils \
+      perl \
+      perl-IPC-Cmd \
       pkgconfig \
       tar \
       unzip \
