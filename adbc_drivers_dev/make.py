@@ -516,8 +516,13 @@ def check_linux(binary: Path) -> None:
 
     # Like upstream.  Match manylinux2014's versions.
     # https://peps.python.org/pep-0599/#the-manylinux2014-policy
-    glibc_max = "2.17"
-    glibcxx_max = "3.14.19"
+    manylinux = get_var("MANYLINUX", "manylinux2014").lower()
+    if manylinux == "manylinux2014":
+        glibc_max = "2.17"
+        glibcxx_max = "3.4.19"
+    elif manylinux == "manylinux_2_28":
+        glibc_max = "2.28"
+        glibcxx_max = "3.4.32"
 
     for symbol in symbols:
         if "@GLIBC_" in symbol:
