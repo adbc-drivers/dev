@@ -43,6 +43,9 @@ def main():
         version = packaging.version.parse(args.tag)
         prefix = "v"
 
+    print("Subdir:", subdir)
+    print("Version:", version)
+
     # Figure out the previous tag so we can compute the changelog.
     # Note that we don't use the Go semver, and we assume that there are no
     # dev/other modifiers (which would be invalid here)
@@ -51,8 +54,10 @@ def main():
     for ref in repo.references:
         if ref.startswith(f"refs/tags/{prefix}"):
             tag = ref[len("refs/tags/") :]
-            version = packaging.version.parse(tag[len(prefix) :])
-            tags.append((tag, version))
+            v = packaging.version.parse(tag[len(prefix) :])
+            if v.is_prerelease or v.is_devrelease:
+                continue
+            tags.append((tag, v))
 
     tags.sort(key=lambda v: v[1])
     tags = list(filter(lambda v: v[1] < version, tags))
@@ -62,6 +67,8 @@ def main():
         previous_tag = None
     else:
         previous_tag = tags[-1][0]
+
+    print("Previous tag:", previous_tag, f"(found: {', '.join(t[0] for t in tags)})")
 
     title, log = changelog.generate_changelog(
         root, subdir, version, previous_tag, args.tag
