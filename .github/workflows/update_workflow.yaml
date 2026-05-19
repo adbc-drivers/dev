@@ -66,6 +66,13 @@ jobs:
               exit 0
             fi
 
+            # Skip if PR exists
+            EXISTING_PRS=$(gh pr list --json 'author,title' --jq '.[] | select(.author.login == "app/github-actions") | .title | select(contains("chore: update workflow template action"))')
+            if [[ -n "$EXISTING_PRS" ]]; then
+              echo "Existing PRs already exist. Skipping creating a new PR."
+              exit 0
+            fi
+
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b "$BRANCH"
