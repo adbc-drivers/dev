@@ -179,17 +179,45 @@ def detect_version(
         # use a version that dbc will still accept, not "unknown" like we used to
         version = "v0.0.1-dev"
     else:
-        tag = tags[0]
-        version = tag[len(prefix) - 1 :]
-        # If we are not on the tag, append the commit count and hash
-        count = int(
-            check_output(["git", "rev-list", f"{tag}..HEAD", "--count"], cwd=repo_root)
-        )
+        # sort tags, then find distance from all tags to HEAD
+        # the assumption is that this is monotonically increasing, else we have a problem
+        versions = []
+        for tag in tags:
+            version_str = tag[len(prefix) - 1 :]
+            version = packaging.version.parse(version_str)
+            distance = int(
+                check_output(
+                    ["git", "rev-list", f"{tag}..HEAD", "--count"], cwd=repo_root
+                )
+            )
+            versions.append((version_str, version, distance, tag))
+
+        versions.sort(key=lambda v: v[1], reverse=True)
+        for v, prev in zip(versions, versions[1:]):
+            if v[2] > prev[2]:
+                raise ValueError(
+                    f"Tag {v[0]} is further from HEAD than {prev[0]}, but has a newer version"
+                )
+
+        version, parsed_version, count, tag = versions[0]
         if count > 0:
             if strict:
                 raise ValueError(
                     f"Driver {driver_root} is not on tag {tag}, but has {count} commits since"
                 )
+            if parsed_version.is_prerelease or parsed_version.is_devrelease:
+                # This is a weird edge case, but just use the previous version (or dev version)
+                for v in versions:
+                    if not (v[1].is_prerelease or v[1].is_devrelease):
+                        version, parsed_version, count, tag = v
+                        break
+                else:
+                    version = "v0.0.1"
+                    count = int(
+                        check_output(
+                            ["git", "rev-list", "HEAD", "--count"], cwd=repo_root
+                        )
+                    )
             rev = check_output(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root)
             version += f"-dev.{count}.{rev}"
 
@@ -276,7 +304,8 @@ def build_go(
     *,
     ci: bool = False,
 ) -> None:
-    version = detect_version(driver_root)
+    strict = to_bool(get_var("RELEASE", "false"))
+    version = detect_version(driver_root, strict=strict)
     (repo_root / "build").mkdir(exist_ok=True)
 
     # Embed the version in the library
@@ -371,7 +400,8 @@ def build_rust(
     *,
     ci: bool = False,
 ) -> None:
-    version = detect_version(driver_root)
+    strict = to_bool(get_var("RELEASE", "false"))
+    version = detect_version(driver_root, strict=strict)
     (repo_root / "build").mkdir(exist_ok=True)
 
     debug = to_bool(get_var("DEBUG", "False"))
@@ -439,7 +469,8 @@ def build_script(
     *,
     ci: bool = False,
 ) -> None:
-    version = detect_version(driver_root)
+    strict = to_bool(get_var("RELEASE", "false"))
+    version = detect_version(driver_root, strict=strict)
     (repo_root / "build").mkdir(exist_ok=True)
 
     debug = to_bool(get_var("DEBUG", "False"))

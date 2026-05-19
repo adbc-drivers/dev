@@ -565,7 +565,7 @@ jobs:
             source .env.release
           fi
           set +a
-          pixi run adbc-make check CI=true VERBOSE=true DRIVER=<{driver}> IMPL_LANG=<{lang}> <{' '.join(lang_config.build.additional_make_args) }>
+          pixi run adbc-make check CI=true VERBOSE=true DRIVER=<{driver}> IMPL_LANG=<{lang}> <{' '.join(lang_config.build.additional_make_args) }><% if release %>RELEASE=true<% endif %>
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
@@ -657,7 +657,7 @@ jobs:
             --name <{driver}> \
             --root $(pwd) \
             --manifest-template $(pwd)/manifest.toml \
-            ${{ (inputs.release && '--release') || '' }}\
+            <% if release %>--release<% endif %> \
             -o ~/packages \
             ~/drivers/drivers-*-*/
 
