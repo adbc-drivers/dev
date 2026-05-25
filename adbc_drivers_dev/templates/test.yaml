@@ -271,6 +271,11 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
           go mod tidy --diff
+<% elif lang == "rust" %>
+      - name: clippy
+        working-directory: <{ lang_subdir }>
+        run: |
+          cargo clippy --locked --no-deps -- -A unused_variables -D warnings
 <% endif %>
 <% endif %>
 
