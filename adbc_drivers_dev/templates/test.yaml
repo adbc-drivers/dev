@@ -91,7 +91,7 @@ permissions:
   contents: read
 
 jobs:
-<% if not lang_config.skip_test %>
+<% if not lang_config.test.skip %>
   test:
     name: "Test/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
@@ -217,10 +217,10 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
           if [[ -f compose.yaml ]]; then
-            if ! docker compose up --detach --wait test-service; then
+            if ! docker compose up --detach --wait <{lang_config.test.service_name}>; then
               echo "Service failed to start"
               echo "Logs:"
-              docker compose logs test-service
+              docker compose logs <{lang_config.test.service_name}>
               exit 1
             fi
           fi
@@ -472,7 +472,7 @@ jobs:
 
   build:
     name: "Build <{driver}>/${{ matrix.platform }}_${{ matrix.arch }}"
-<% if not lang_config.skip_test %>
+<% if not lang_config.test.skip %>
     needs: test
 <% endif %>
     runs-on: ${{ matrix.runner }}

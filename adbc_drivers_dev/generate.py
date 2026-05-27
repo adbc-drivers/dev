@@ -121,6 +121,26 @@ class LangValidationConfig(BaseModel):
     )
 
 
+class LangTestConfig(BaseModel):
+    """Options for test suite."""
+
+    model_config = {
+        "extra": "forbid",
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
+
+    skip: bool = Field(
+        default=False,
+        description="Whether to skip tests in CI (this should only be used temporarily while setting up a driver or for build-only drivers)",
+    )
+    service_name: str = Field(
+        alias="service-name",
+        default="test-service",
+        description="docker-compose service to start for tests",
+    )
+
+
 class LangConfig(BaseModel):
     model_config = {
         "extra": "forbid",
@@ -136,14 +156,13 @@ class LangConfig(BaseModel):
         default=None,
         description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",
     )
+    test: LangTestConfig = Field(
+        default_factory=LangTestConfig,
+        description="Configuration for the driver test suite.",
+    )
     validation: LangValidationConfig = Field(
         default_factory=LangValidationConfig,
         description="Configuration for the driver validation suite.",
-    )
-    skip_test: bool = Field(
-        default=False,
-        alias="skip-test",
-        description="Whether to skip test workflows (primarily useful for build-only drivers)",
     )
 
     @model_validator(mode="before")
