@@ -75,11 +75,9 @@ class LangBuildConfig(BaseModel):
         alias="lang-tools",
         description="Install tools for these languages to use in the build.",
     )
-
-    environment_contexts: list[str] = Field(
-        default_factory=lambda: ["test", "validate"],
-        alias="environment-contexts",
-        description="What parts of the build require the environment.",
+    environment: str | None = Field(
+        default=None,
+        description="Name of a GitHub Actions Environment to activate",
     )
 
 
@@ -99,6 +97,10 @@ class LangValidateSpec(BaseModel):
     vendor_version: str = Field(
         default="latest",
         description="version to pass to the validation suite",
+    )
+    environment: str | None = Field(
+        default=None,
+        description="Name of a GitHub Actions Environment to activate",
     )
 
 
@@ -139,6 +141,19 @@ class LangTestConfig(BaseModel):
         default="test-service",
         description="docker-compose service to start for tests",
     )
+    environment: str | None = Field(
+        default=None,
+        description="Name of a GitHub Actions Environment to activate",
+    )
+
+
+class LangTestPackagesConfig(BaseModel):
+    """Options for the Test Packages step."""
+
+    environment: str | None = Field(
+        default=None,
+        description="Name of a GitHub Actions Environment to activate",
+    )
 
 
 class LangConfig(BaseModel):
@@ -159,6 +174,11 @@ class LangConfig(BaseModel):
     test: LangTestConfig = Field(
         default_factory=LangTestConfig,
         description="Configuration for the driver test suite.",
+    )
+    test_packages: LangTestPackagesConfig = Field(
+        default_factory=LangTestPackagesConfig,
+        alias="test-packages",
+        description="Configuration for the Test Packages step.",
     )
     validation: LangValidationConfig = Field(
         default_factory=LangValidationConfig,
@@ -218,6 +238,8 @@ class GenerateConfig(BaseModel):
             "title": "Schema for generate.toml",
             "description": "You can validate your generate.toml against this schema with tools like tombi (https://tombi-toml.github.io/tombi/docs/linter). Requires placing a `#:schema` directive at the top of your generate.toml file.",
         },
+        "validate_by_name": True,
+        "validate_by_alias": True,
     }
 
     repository: str | None = Field(
@@ -229,13 +251,14 @@ class GenerateConfig(BaseModel):
         default="(unknown)",
         description="Driver name. Should be lowercase (e.g., postgresql, sqlite)",
     )
-    environment: str | None = Field(
-        default=None,
-        description="Name of a GitHub Actions Environment to use when including secrets in workflows",
-    )
     private: bool = Field(
         default=False,
         description="Whether the driver is private. Most drivers will be not be private so you can omit this.",
+    )
+    concurrency_key: str | None = Field(
+        default=None,
+        alias="concurrency-key",
+        description="Concurrency group for GitHub Actions. If specified, it effectively blocks test and release pipelines from running concurrently.",
     )
     lang: dict[str, LangConfig | None] = Field(
         default_factory=dict,
@@ -295,11 +318,11 @@ gcloud = true"""
     _processed_secrets: dict[str, dict[str, str]] = PrivateAttr(default_factory=dict)
     _permissions: dict[str, bool] = PrivateAttr(default_factory=dict)
 
-    @field_validator("environment")
+    @field_validator("concurrency_key")
     @classmethod
-    def validate_environment(cls, v: str | None) -> str | None:
+    def validate_concurrency_key(cls, v: str | None) -> str | None:
         if v is not None and not v.strip():
-            raise ValueError("environment must be non-empty if provided")
+            raise ValueError("concurrency-key must be non-empty if provided")
         return v
 
     @field_validator("lang", mode="before")
@@ -366,8 +389,8 @@ gcloud = true"""
         return {
             "driver": self.driver,
             "repository": self.repository,
-            "environment": self.environment,
             "private": self.private,
+            "concurrency_key": self.concurrency_key,
             "lang": self.lang,
             "secrets": self._processed_secrets,
             "permissions": self._permissions,
