@@ -249,7 +249,7 @@ jobs:
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }}
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
           fi
 
 <% if lang == "go" %>
