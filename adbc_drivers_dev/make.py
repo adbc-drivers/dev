@@ -271,9 +271,7 @@ def target_architecture() -> str:
     target = target.replace("/", "-")
     _, sep, arch = target.partition("-")
     if not sep:
-        if target_platform() == "linux":
-            return "amd64"
-        return normalize_arch(platform.machine())
+        return "amd64"
     return normalize_arch(arch)
 
 
@@ -329,7 +327,6 @@ def maybe_build_docker(
     env: dict[str, str],
     args: list[str],
     container: str,
-    docker_target: str | None = None,
 ) -> None:
     if not should_use_docker():
         check_call(args, cwd=driver_root, env=env)
@@ -338,8 +335,7 @@ def maybe_build_docker(
     env = env.copy()
     env["SOURCE_ROOT"] = str(repo_root)
     env["ARCH"] = target_architecture()
-    if docker_target:
-        env["DOCKER_DEFAULT_PLATFORM"] = docker_target
+    env["DOCKER_DEFAULT_PLATFORM"] = docker_platform()
 
     volumes = get_var("ADDITIONAL_VOLUMES", "")
     if volumes:
@@ -412,8 +408,6 @@ def build_go(
     driver_root: Path,
     driver: str,
     target: str,
-    *,
-    ci: bool = False,
 ) -> None:
     strict = to_bool(get_var("RELEASE", "false"))
     version = detect_version(driver_root, strict=strict)
@@ -480,7 +474,6 @@ def build_go(
                 "./pkg",
             ],
             container="manylinux",
-            docker_target=docker_platform(),
         )
     else:
         check_call(
@@ -510,8 +503,6 @@ def build_rust(
     driver_root: Path,
     driver: str,
     target: str,
-    *,
-    ci: bool = False,
 ) -> None:
     strict = to_bool(get_var("RELEASE", "false"))
     version = detect_version(driver_root, strict=strict)
@@ -551,7 +542,6 @@ def build_rust(
         env=env,
         args=["cargo", "build", *args],
         container="manylinux-rust",
-        docker_target=docker_platform() if should_use_docker() else None,
     )
 
     lib = driver_root / "target"
@@ -633,7 +623,6 @@ def build_script(
             env=env,
             args=args,
             container=container,
-            docker_target=docker_platform() if should_use_docker() else None,
         )
 
     output = (repo_root / "build" / target).resolve()
@@ -758,11 +747,11 @@ def task_build():
 
     if lang == "go":
         actions = [
-            lambda: build_go(repo_root, driver_root, driver, target, ci=ci),
+            lambda: build_go(repo_root, driver_root, driver, target),
         ]
     elif lang == "rust":
         actions = [
-            lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
+            lambda: build_rust(repo_root, driver_root, driver, target),
         ]
     elif lang == "script":
         actions = [
