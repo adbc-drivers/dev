@@ -21,7 +21,6 @@ from adbc_drivers_dev.generate import GenerateConfig, LangConfig
 def test_model_default() -> None:
     config = GenerateConfig.model_validate({})
     assert config.driver == "(unknown)"
-    assert config.environment is None
     assert config.private is False
     assert config.lang == {}
     assert config._processed_secrets == {
@@ -40,7 +39,7 @@ def test_model_default() -> None:
     assert config.to_dict() == {
         "driver": "(unknown)",
         "repository": "(unknown)",
-        "environment": None,
+        "concurrency_key": None,
         "private": False,
         "lang": {},
         "secrets": {
@@ -66,12 +65,6 @@ def test_model_custom() -> None:
     config = GenerateConfig.model_validate({"driver": "postgresql"})
     assert config.driver == "postgresql"
     assert config.to_dict()["driver"] == "postgresql"
-    assert config == config
-    assert config != GenerateConfig.model_validate({})
-
-    config = GenerateConfig.model_validate({"environment": "ci-env"})
-    assert config.environment == "ci-env"
-    assert config.to_dict()["environment"] == "ci-env"
     assert config == config
     assert config != GenerateConfig.model_validate({})
 
