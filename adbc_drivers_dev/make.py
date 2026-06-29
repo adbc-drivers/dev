@@ -29,24 +29,38 @@ from pathlib import Path
 import doit
 import packaging.version
 
-match platform.system():
-    case "Darwin":
-        EXT = "dylib"
-        PLATFORM = "macos"
-    case "Linux":
-        EXT = "so"
-        PLATFORM = "linux"
-    case "Windows":
-        EXT = "dll"
-        PLATFORM = "windows"
-    case _:
-        raise RuntimeError(f"Unsupported platform: {platform.system()}")
+HOST_PLATFORM_NAMES = {
+    "Darwin": "macos",
+    "Linux": "linux",
+    "Windows": "windows",
+}
+
+PLATFORM_EXTENSIONS = {
+    "macos": "dylib",
+    "linux": "so",
+    "windows": "dll",
+}
+
+ARCH_ALIASES = {
+    "amd64": "amd64",
+    "x86_64": "amd64",
+    "x64": "amd64",
+    "aarch64": "arm64",
+    "arm64": "arm64",
+    "arm64v8": "arm64",
+}
+
+HOST_SYSTEM = platform.system()
+try:
+    PLATFORM = HOST_PLATFORM_NAMES[HOST_SYSTEM]
+except KeyError as err:
+    raise RuntimeError(f"Unsupported platform: {HOST_SYSTEM}") from err
 
 
 DOIT_CONFIG = {
     "default_tasks": ["build"],
 }
-SMUGGLE_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS", "PROTOC"}
+SMUGGLE_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS", "GOWORK", "PROTOC"}
 
 
 def to_bool(value: str | bool) -> bool:
@@ -73,20 +87,11 @@ def append_flags(env: dict[str, str], var: str, flags: str) -> None:
         env[var] = flags
 
 
-def architecture() -> str:
-    match platform.machine():
-        case "AMD64":
-            return "amd64"
-        case "aarch64":
-            return "arm64"
-        case "arm64":
-            return "arm64"
-        case "arm64v8":
-            return "arm64"
-        case "x86_64":
-            return "amd64"
-        case _:
-            raise ValueError(f"{platform.machine()} is not a recognized architecture")
+def normalize_arch(value: str) -> str:
+    try:
+        return ARCH_ALIASES[value.lower()]
+    except KeyError as err:
+        raise ValueError(f"{value} is not a recognized architecture") from err
 
 
 def _check_call(f, *args, **kwargs) -> str:
@@ -102,6 +107,8 @@ def _check_call(f, *args, **kwargs) -> str:
             elif k in {
                 "ADBC_DRIVER_BUILD_VERSION",
                 "ARCH",
+                "DOCKER_DEFAULT_PLATFORM",
+                "GOWORK",
                 "MACOSX_DEPLOYMENT_TARGET",
                 "SOURCE_ROOT",
             }:
@@ -243,22 +250,92 @@ def get_var(name: str, default: str) -> str:
     return value
 
 
+def target_platform() -> str:
+    target = get_var("TARGET", "").strip().lower()
+    if not target:
+        return PLATFORM
+    target = target.replace("/", "-")
+    platform_name, _, _ = target.partition("-")
+    if platform_name != "linux":
+        raise ValueError(
+            "Cross-compilation only supports Linux targets. "
+            f"Got: {platform_name!r}. Use TARGET=linux, TARGET=linux-amd64, or TARGET=linux-arm64"
+        )
+    return platform_name
+
+
+def target_architecture() -> str:
+    target = get_var("TARGET", "").strip().lower()
+    if not target:
+        return normalize_arch(platform.machine())
+    target = target.replace("/", "-")
+    _, sep, arch = target.partition("-")
+    if not sep:
+        return "amd64"
+    return normalize_arch(arch)
+
+
+def target_extension() -> str:
+    try:
+        return PLATFORM_EXTENSIONS[target_platform()]
+    except KeyError as err:
+        raise ValueError(f"Unsupported target platform: {target_platform()}") from err
+
+
+def should_use_docker() -> bool:
+    target = get_var("TARGET", "").strip()
+    explicit = get_var("USE_DOCKER", "").strip()
+
+    if target:
+        if explicit and not to_bool(explicit):
+            raise ValueError(
+                "Linux cross-compilation requires Docker; USE_DOCKER=false is not supported with TARGET=linux*"
+            )
+        return target_platform() == "linux"
+
+    if explicit:
+        if to_bool(explicit):
+            if platform.system() != "Linux":
+                raise ValueError(
+                    "USE_DOCKER=true without TARGET is only supported on Linux hosts"
+                )
+            return True
+        return False
+
+    if to_bool(get_var("DEBUG", "False")):
+        return False
+
+    # CI on Linux: use Docker (original behavior)
+    return to_bool(get_var("CI", False)) and platform.system() == "Linux"
+
+
+def docker_platform() -> str:
+    return f"{target_platform()}/{target_architecture()}"
+
+
+def docker_env(repo_root: Path) -> dict[str, str]:
+    return {
+        "SOURCE_ROOT": str(repo_root),
+        "DOCKER_DEFAULT_PLATFORM": docker_platform(),
+    }
+
+
 def maybe_build_docker(
     *,
     repo_root: Path,
     driver_root: Path,
     env: dict[str, str],
     args: list[str],
-    ci: bool,
     container: str,
 ) -> None:
-    if not ci or platform.system() != "Linux" or to_bool(get_var("DEBUG", "False")):
+    if not should_use_docker():
         check_call(args, cwd=driver_root, env=env)
         return
 
     env = env.copy()
     env["SOURCE_ROOT"] = str(repo_root)
-    env["ARCH"] = architecture()
+    env["ARCH"] = target_architecture()
+    env["DOCKER_DEFAULT_PLATFORM"] = docker_platform()
 
     volumes = get_var("ADDITIONAL_VOLUMES", "")
     if volumes:
@@ -296,17 +373,46 @@ def maybe_build_docker(
     check_call(command, cwd=Path(__file__).parent, env=env)
 
 
+def read_linux_symbols(binary: Path) -> list[str]:
+    return check_output(
+        [
+            "nm",
+            "--demangle",
+            "--dynamic",
+            str(binary),
+        ]
+    ).splitlines()
+
+
+def read_linux_symbols_in_docker(repo_root: Path, binary: Path) -> list[str]:
+    rel_binary = binary.resolve().relative_to(repo_root.resolve())
+    return check_output(
+        [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "manylinux",
+            "nm",
+            "--demangle",
+            "--dynamic",
+            f"/source/{rel_binary.as_posix()}",
+        ],
+        cwd=Path(__file__).parent,
+        env=docker_env(repo_root),
+    ).splitlines()
+
+
 def build_go(
     repo_root: Path,
     driver_root: Path,
     driver: str,
     target: str,
-    *,
-    ci: bool = False,
 ) -> None:
     strict = to_bool(get_var("RELEASE", "false"))
     version = detect_version(driver_root, strict=strict)
     (repo_root / "build").mkdir(exist_ok=True)
+    target_name = target_platform()
 
     # Embed the version in the library
     prop = "github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion"
@@ -340,12 +446,13 @@ def build_go(
         if var in os.environ:
             env[var] = os.environ[var]
 
-    if platform.system() == "Darwin":
+    if platform.system() == "Darwin" and target_name == "macos":
         append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=11.0")
         append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=11.0")
 
-    if ci and platform.system() == "Linux" and not to_bool(get_var("DEBUG", "False")):
-        check_call(["go", "mod", "vendor"], cwd=driver_root)
+    if should_use_docker():
+        vendor_env = {"GOWORK": "off"}
+        check_call(["go", "mod", "vendor"], cwd=driver_root, env=vendor_env)
         ldflags += (
             " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
         )
@@ -354,7 +461,7 @@ def build_go(
         maybe_build_docker(
             repo_root=repo_root,
             driver_root=driver_root,
-            env=env,
+            env=env | vendor_env,
             args=[
                 "go",
                 "build",
@@ -366,7 +473,6 @@ def build_go(
                 ldflags,
                 "./pkg",
             ],
-            ci=ci,
             container="manylinux",
         )
     else:
@@ -397,14 +503,13 @@ def build_rust(
     driver_root: Path,
     driver: str,
     target: str,
-    *,
-    ci: bool = False,
 ) -> None:
     strict = to_bool(get_var("RELEASE", "false"))
     version = detect_version(driver_root, strict=strict)
     (repo_root / "build").mkdir(exist_ok=True)
 
     debug = to_bool(get_var("DEBUG", "False"))
+    target_name = target_platform()
 
     # Note: version embedded in library is determined by Cargo.toml
     # TODO: check that it matches git tag?
@@ -427,7 +532,7 @@ def build_rust(
     info("Building", target, "version", version, "features", features)
 
     env = {}
-    if platform.system() == "Darwin":
+    if platform.system() == "Darwin" and target_name == "macos":
         # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
@@ -436,7 +541,6 @@ def build_rust(
         driver_root=driver_root,
         env=env,
         args=["cargo", "build", *args],
-        ci=ci,
         container="manylinux-rust",
     )
 
@@ -450,8 +554,8 @@ def build_rust(
     # Exclusion basically just for Databricks - their crate name is not
     # "adbc_driver_databricks" but rather "databricks_adbc"
     if target_name := get_var("TARGET_NAME", ""):
-        source_target = f"lib{target_name}.{EXT}"
-    if platform.system() == "Windows":
+        source_target = f"lib{target_name}.{target_extension()}"
+    if target_platform() == "windows":
         source_target = source_target.removeprefix("lib")
     lib = lib / source_target
     info("Copying", lib, "to", repo_root / "build" / target)
@@ -474,23 +578,24 @@ def build_script(
     (repo_root / "build").mkdir(exist_ok=True)
 
     debug = to_bool(get_var("DEBUG", "False"))
+    target_name = target_platform()
 
     args = []
     if debug:
         args.append("test")
     else:
         args.append("release")
-    args.append(PLATFORM)
-    args.append(architecture())
+    args.append(target_name)
+    args.append(target_architecture())
 
     info("Building", target, "version", version)
 
     env = {}
-    if platform.system() == "Darwin":
+    if platform.system() == "Darwin" and target_name == "macos":
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
     args = ["./ci/scripts/build.sh", *args]
-    if ci and PLATFORM == "windows":
+    if ci and target_name == "windows":
         # Force use of Git Bash on GitHub Actions
         args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
 
@@ -509,29 +614,26 @@ def build_script(
     # if we're using a script, don't invoke docker for Go; the script itself
     # will invoke docker
 
-    maybe_build_docker(
-        repo_root=repo_root,
-        driver_root=driver_root,
-        env=env,
-        args=args,
-        ci=ci and toolchain != "go",
-        container=container,
-    )
+    if should_use_docker() and toolchain == "go":
+        check_call(args, cwd=driver_root, env=env)
+    else:
+        maybe_build_docker(
+            repo_root=repo_root,
+            driver_root=driver_root,
+            env=env,
+            args=args,
+            container=container,
+        )
 
     output = (repo_root / "build" / target).resolve()
     output.chmod(0o755)
 
 
 def check_linux(binary: Path) -> None:
-    symbols = check_output(
-        [
-            "nm",
-            "--demangle",
-            "--dynamic",
-            str(binary),
-        ]
-    ).splitlines()
+    check_linux_symbols(read_linux_symbols(binary), binary)
 
+
+def check_linux_symbols(symbols: list[str], binary: Path) -> None:
     # Make sure only 'Adbc*' symbols are exported
     bad_symbols = []
     for symbol in symbols:
@@ -593,9 +695,24 @@ def check_macos(binary: Path) -> None:
 
 
 def check(binary: Path) -> None:
-    if platform.system() == "Linux":
+    if target_platform() == "linux":
+        if platform.system() != "Linux":
+            if should_use_docker():
+                repo_root = Path(".").resolve()
+                check_linux_symbols(
+                    read_linux_symbols_in_docker(repo_root, binary),
+                    binary,
+                )
+            else:
+                info(
+                    "Skipping Linux compatibility checks on non-Linux host (no Docker)"
+                )
+            return
         check_linux(binary)
-    elif platform.system() == "Darwin":
+    elif target_platform() == "macos":
+        if platform.system() != "Darwin":
+            info("Skipping macOS compatibility checks on non-macOS host")
+            return
         check_macos(binary)
 
 
@@ -626,15 +743,15 @@ def task_build():
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
-    target = f"libadbc_driver_{driver}.{EXT}"
+    target = f"libadbc_driver_{driver}.{target_extension()}"
 
     if lang == "go":
         actions = [
-            lambda: build_go(repo_root, driver_root, driver, target, ci=ci),
+            lambda: build_go(repo_root, driver_root, driver, target),
         ]
     elif lang == "rust":
         actions = [
-            lambda: build_rust(repo_root, driver_root, driver, target, ci=ci),
+            lambda: build_rust(repo_root, driver_root, driver, target),
         ]
     elif lang == "script":
         actions = [
@@ -643,11 +760,19 @@ def task_build():
     else:
         raise ValueError(f"Unsupported LANG={lang}")
 
-    return {
+    targets = [repo_root / "build" / target]
+
+    result = {
         "actions": actions,
         "file_dep": [str(p) for p in file_deps],
-        "targets": [repo_root / "build" / target],
+        "targets": targets,
     }
+
+    # Force rebuild when cross-compiling (don't use doit cache)
+    if get_var("TARGET", "").strip():
+        result["uptodate"] = [False]  # codespell:ignore uptodate
+
+    return result
 
 
 def task_check():
@@ -656,7 +781,7 @@ def task_check():
         raise ValueError("Must specify DRIVER=driver")
 
     repo_root = Path(".").resolve()
-    target = repo_root / "build" / f"libadbc_driver_{driver}.{EXT}"
+    target = repo_root / "build" / f"libadbc_driver_{driver}.{target_extension()}"
 
     return {
         "actions": [
