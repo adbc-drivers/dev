@@ -143,6 +143,9 @@ def generate_workflows(args) -> int:
             "lang_config": lang_config,
             "lang_tools": lang_tools,
         }
+
+        lang_ctx["azure"] = any(config.azure for config in lang_config.validation.configs)
+
         write_workflow(
             workflows,
             template,

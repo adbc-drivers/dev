@@ -91,16 +91,22 @@ class LangValidateSpec(BaseModel):
     }
 
     service_name: str = Field(
+        alias="service-name",
         default="test-service",
         description="docker-compose service to start",
     )
     vendor_version: str = Field(
+        alias="vendor-version",
         default="latest",
         description="version to pass to the validation suite",
     )
     environment: str | None = Field(
         default=None,
         description="Name of a GitHub Actions Environment to activate",
+    )
+    azure: bool = Field(
+        default=False,
+        description="Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
     )
 
 
