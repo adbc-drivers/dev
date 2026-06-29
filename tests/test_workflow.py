@@ -52,6 +52,7 @@ def test_model_default() -> None:
         "permissions": {},
         "aws": None,
         "gcloud": False,
+        "azure": False,
         "validation": {
             "extra_dependencies": {},
             "extra_pypi_dependencies": {},

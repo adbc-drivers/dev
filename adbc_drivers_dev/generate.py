@@ -14,6 +14,7 @@
 
 import typing
 
+import pydantic
 from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 # Define workflow contexts in a single location
@@ -340,6 +341,15 @@ gcloud = true"""
             for k, v in value.items()
         }
 
+    @pydantic.computed_field
+    def azure(self) -> int:
+        return any(
+            config.azure
+            for lang in self.lang.values()
+            if lang
+            for config in lang.validation.configs
+        )
+
     @model_validator(mode="after")
     def default_repository(self) -> "GenerateConfig":
         if self.repository is None:
@@ -386,7 +396,7 @@ gcloud = true"""
         self._processed_secrets["all"] = all_secrets
 
         # Set permissions
-        if self.aws or self.gcloud:
+        if self.aws or self.gcloud or self.azure:
             self._permissions["id_token"] = True
 
         return self
@@ -401,6 +411,7 @@ gcloud = true"""
             "secrets": self._processed_secrets,
             "permissions": self._permissions,
             "aws": self.aws.model_dump() if self.aws else None,
+            "azure": self.azure,
             "gcloud": self.gcloud,
             "validation": {
                 "extra_dependencies": self.validation.extra_dependencies,
