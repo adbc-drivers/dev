@@ -158,16 +158,16 @@
       "additionalProperties": false,
       "description": "A single config to validate.",
       "properties": {
-        "service_name": {
+        "service-name": {
           "default": "test-service",
           "description": "docker-compose service to start",
-          "title": "Service Name",
+          "title": "Service-Name",
           "type": "string"
         },
-        "vendor_version": {
+        "vendor-version": {
           "default": "latest",
           "description": "version to pass to the validation suite",
-          "title": "Vendor Version",
+          "title": "Vendor-Version",
           "type": "string"
         },
         "environment": {
@@ -182,6 +182,12 @@
           "default": null,
           "description": "Name of a GitHub Actions Environment to activate",
           "title": "Environment"
+        },
+        "azure": {
+          "default": false,
+          "description": "Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
+          "title": "Azure",
+          "type": "boolean"
         }
       },
       "title": "LangValidateSpec",
