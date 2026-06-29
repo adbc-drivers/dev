@@ -22,14 +22,12 @@ See: https://pydoit.org/
 import os
 import platform
 import shlex
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import doit
 import packaging.version
-
 
 match platform.system():
     case "Darwin":
@@ -316,25 +314,6 @@ def docker_platform() -> str:
     return f"{target_platform()}/{target_architecture()}"
 
 
-def should_bundle() -> bool:
-    explicit = get_var("BUNDLE", "").strip()
-    if explicit:
-        return to_bool(explicit)
-    return bool(get_var("TARGET", "").strip()) and target_platform() == "linux"
-
-
-def bundle_output_path(repo_root: Path, driver_root: Path, driver: str) -> Path:
-    version = detect_version(driver_root)
-    return (
-        repo_root
-        / "build"
-        / "packages"
-        / driver
-        / version
-        / f"{driver}_{target_platform()}_{target_architecture()}_{version}.tar.gz"
-    )
-
-
 def maybe_build_docker(
     *,
     repo_root: Path,
@@ -388,42 +367,6 @@ def maybe_build_docker(
         ]
     )
     check_call(command, cwd=Path(__file__).parent, env=env)
-
-
-def bundle_driver(repo_root: Path, driver_root: Path, driver: str, built_driver: Path):
-    if target_platform() != "linux":
-        raise ValueError("BUNDLE=true is only supported for Linux targets")
-
-    manifest_template = driver_root / "manifest.toml"
-    if not manifest_template.is_file():
-        raise RuntimeError(f"Manifest template not found: {manifest_template}")
-
-    staged_driver_dir = (
-        repo_root / "build" / f"drivers-{target_platform()}-{target_architecture()}"
-    )
-    staged_driver_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(built_driver, staged_driver_dir / built_driver.name)
-
-    output_dir = repo_root / "build" / "packages"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    check_call(
-        [
-            sys.executable,
-            "-m",
-            "adbc_drivers_dev.package",
-            "--name",
-            driver,
-            "--root",
-            str(driver_root),
-            "--manifest-template",
-            str(manifest_template),
-            "-o",
-            str(output_dir),
-            str(staged_driver_dir),
-        ],
-        cwd=repo_root,
-    )
 
 
 def build_go(
@@ -768,10 +711,6 @@ def task_build():
                 file_deps.append(Path(dirname) / filename)
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
-    if should_bundle():
-        manifest_template = driver_root / "manifest.toml"
-        if manifest_template.is_file():
-            file_deps.append(manifest_template)
 
     target = f"libadbc_driver_{driver}.{target_extension()}"
 
@@ -791,16 +730,6 @@ def task_build():
         raise ValueError(f"Unsupported LANG={lang}")
 
     targets = [repo_root / "build" / target]
-    if should_bundle():
-        actions.append(
-            lambda: bundle_driver(repo_root, driver_root, driver, repo_root / "build" / target)
-        )
-        targets.extend(
-            [
-                bundle_output_path(repo_root, driver_root, driver),
-                repo_root / "build" / "packages" / "manifest.yaml",
-            ]
-        )
 
     return {
         "actions": actions,
