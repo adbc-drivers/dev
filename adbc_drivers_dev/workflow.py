@@ -143,6 +143,7 @@ def generate_workflows(args) -> int:
             "lang_config": lang_config,
             "lang_tools": lang_tools,
         }
+
         write_workflow(
             workflows,
             template,

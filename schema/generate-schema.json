@@ -48,13 +48,18 @@
           "title": "Lang-Tools",
           "type": "array"
         },
-        "environment-contexts": {
-          "description": "What parts of the build require the environment.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Environment-Contexts",
-          "type": "array"
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a GitHub Actions Environment to activate",
+          "title": "Environment"
         }
       },
       "title": "LangBuildConfig",
@@ -80,20 +85,134 @@
           "description": "Override the default subdirectory for this language. Use '.' to place files at the repository root.",
           "title": "Subdir"
         },
-        "skip-test": {
-          "default": false,
-          "description": "Whether to skip test workflows (primarily useful for build-only drivers)",
-          "title": "Skip-Test",
-          "type": "boolean"
+        "test": {
+          "$ref": "#/$defs/LangTestConfig",
+          "description": "Configuration for the driver test suite."
         },
-        "skip-validate": {
-          "default": false,
-          "description": "Whether to skip the validation suite in CI (this should only be used temporarily while setting up a driver)",
-          "title": "Skip-Validate",
-          "type": "boolean"
+        "test-packages": {
+          "$ref": "#/$defs/LangTestPackagesConfig",
+          "description": "Configuration for the Test Packages step."
+        },
+        "validation": {
+          "$ref": "#/$defs/LangValidationConfig",
+          "description": "Configuration for the driver validation suite."
         }
       },
       "title": "LangConfig",
+      "type": "object"
+    },
+    "LangTestConfig": {
+      "additionalProperties": false,
+      "description": "Options for test suite.",
+      "properties": {
+        "skip": {
+          "default": false,
+          "description": "Whether to skip tests in CI (this should only be used temporarily while setting up a driver or for build-only drivers)",
+          "title": "Skip",
+          "type": "boolean"
+        },
+        "service-name": {
+          "default": "test-service",
+          "description": "docker-compose service to start for tests",
+          "title": "Service-Name",
+          "type": "string"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a GitHub Actions Environment to activate",
+          "title": "Environment"
+        }
+      },
+      "title": "LangTestConfig",
+      "type": "object"
+    },
+    "LangTestPackagesConfig": {
+      "description": "Options for the Test Packages step.",
+      "properties": {
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a GitHub Actions Environment to activate",
+          "title": "Environment"
+        }
+      },
+      "title": "LangTestPackagesConfig",
+      "type": "object"
+    },
+    "LangValidateSpec": {
+      "additionalProperties": false,
+      "description": "A single config to validate.",
+      "properties": {
+        "service-name": {
+          "default": "test-service",
+          "description": "docker-compose service to start",
+          "title": "Service-Name",
+          "type": "string"
+        },
+        "vendor-version": {
+          "default": "latest",
+          "description": "version to pass to the validation suite",
+          "title": "Vendor-Version",
+          "type": "string"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a GitHub Actions Environment to activate",
+          "title": "Environment"
+        },
+        "azure": {
+          "default": false,
+          "description": "Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
+          "title": "Azure",
+          "type": "boolean"
+        }
+      },
+      "title": "LangValidateSpec",
+      "type": "object"
+    },
+    "LangValidationConfig": {
+      "additionalProperties": false,
+      "description": "Options for validation suite.",
+      "properties": {
+        "skip": {
+          "default": false,
+          "description": "Whether to skip the validation suite in CI (this should only be used temporarily while setting up a driver)",
+          "title": "Skip",
+          "type": "boolean"
+        },
+        "configs": {
+          "description": "A list of configurations to run the validation suite with. Each configuration will be run in a separate job",
+          "items": {
+            "$ref": "#/$defs/LangValidateSpec"
+          },
+          "title": "Configs",
+          "type": "array"
+        }
+      },
+      "title": "LangValidationConfig",
       "type": "object"
     },
     "SecretConfigDict": {
@@ -170,7 +289,13 @@
       "title": "Driver",
       "type": "string"
     },
-    "environment": {
+    "private": {
+      "default": false,
+      "description": "Whether the driver is private. Most drivers will be not be private so you can omit this.",
+      "title": "Private",
+      "type": "boolean"
+    },
+    "concurrency-key": {
       "anyOf": [
         {
           "type": "string"
@@ -180,14 +305,8 @@
         }
       ],
       "default": null,
-      "description": "Name of a GitHub Actions Environment to use when including secrets in workflows",
-      "title": "Environment"
-    },
-    "private": {
-      "default": false,
-      "description": "Whether the driver is private. Most drivers will be not be private so you can omit this.",
-      "title": "Private",
-      "type": "boolean"
+      "description": "Concurrency group for GitHub Actions. If specified, it effectively blocks test and release pipelines from running concurrently.",
+      "title": "Concurrency-Key"
     },
     "lang": {
       "additionalProperties": {

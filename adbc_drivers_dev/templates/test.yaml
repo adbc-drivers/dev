@@ -75,9 +75,10 @@ on:
 <% endif %>
 
 concurrency:
-<% if environment %>
-  # Must share concurrency group with release workflow since it also builds/tests
-  group: ${{ github.repository }}-${{ github.ref }}-<{environment.replace(' ', '-')}>
+<% if concurrency_key %>
+  # Effectively prevents parallel tests - usually used for cloud workflows
+  # Not necessary if you use environments + manual approval + trust the manual approval
+  group: ${{ github.repository }}-<{concurrency_key}>
 <% else %>
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
 <% endif %>
@@ -102,8 +103,8 @@ jobs:
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment and "test" in lang_config.build.environment_contexts or "build:test" in lang_config.build.environment_contexts %>
-    environment: <{environment}>
+<% if lang_config.test.environment %>
+    environment: <{lang_config.test.environment}>
 <% endif %>
     permissions:
       contents: read
@@ -248,7 +249,7 @@ jobs:
 
           if [[ -f ci/scripts/pre-test.sh ]]; then
             echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }}
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
           fi
 
 <% if lang == "go" %>
@@ -289,11 +290,9 @@ jobs:
         include:
           # I think we only need to test one platform, but we can change that later
 <% for config in lang_config.validation.configs %>
-          - { platform: linux, arch: amd64, runner: ubuntu-latest, service_name: "<{config.service_name}>", vendor_version: "<{config.vendor_version}>" }
+          - { platform: linux, arch: amd64, runner: ubuntu-latest, service_name: "<{config.service_name}>", vendor_version: "<{config.vendor_version}>", environment: <% if config.environment %>"<{config.environment}>"<% else %>null<% endif %>, azure: <{ "true" if config.azure else "false" }> }
 <% endfor %>
-<% if environment and "validate" in lang_config.build.environment_contexts or "build:test" in lang_config.build.environment_contexts %>
-    environment: <{environment}>
-<% endif %>
+    environment: ${{ matrix.environment }}
     permissions:
       contents: read
 <% if permissions.get("id_token") %>
@@ -367,6 +366,15 @@ jobs:
           service_account: ${{ secrets.gcloud_service_account }}
           workload_identity_provider: ${{ secrets.gcloud_workload_identity_provider }}
 <% endif %>
+<% if azure %>
+      - name: Azure Login
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43  # v3.0.0
+        if: matrix.azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+<% endif %>
 
       - name: Log in to ghcr.io
         if: runner.os == 'Linux'
@@ -403,7 +411,7 @@ jobs:
         if: runner.os == 'Linux'
         working-directory: <{ lang_subdir }>
         run: |
-          if [[ -f compose.yaml ]]; then
+          if [[ -f compose.yaml ]] && [[ -n "${{ matrix.service_name }}" ]]; then
             if ! docker compose up --detach --wait ${{ matrix.service_name }}; then
               echo "Service failed to start"
               echo "Logs:"
@@ -484,8 +492,8 @@ jobs:
           - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment and "build:release" in lang_config.build.environment_contexts %>
-    environment: <{environment}>
+<% if lang_config.build.environment  %>
+    environment: <{lang_config.build.environment}>
 <% endif %>
     permissions:
       contents: read
@@ -708,8 +716,8 @@ jobs:
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
           - { platform: macos, arch: arm64, runner: macos-latest }
           - { platform: windows, arch: amd64, runner: windows-latest }
-<% if environment and "build:test" in lang_config.build.environment_contexts %>
-    environment: <{environment}>
+<% if lang_config.test_packages.environment %>
+    environment: <{lang_config.test_packages.environment}>
 <% endif %>
     steps:
       # for now, install dbc from main
