@@ -175,6 +175,7 @@ def generate_workflows(args) -> int:
                 f"{lang}_test_pr.yaml",
                 {
                     **params.to_dict(),
+                    **lang_ctx,
                 },
             )
 
