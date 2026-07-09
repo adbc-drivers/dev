@@ -79,8 +79,10 @@ jobs:
     with:
       repository: ${{ needs.setup.outputs.repository }}
       ref: ${{ inputs.ref }}
-<% if permissions.get("id_token") %>
     permissions:
+      contents: read
+      packages: read
+<% if permissions.get("id_token") %>
       id-token: write
 <% endif %>
     secrets:
