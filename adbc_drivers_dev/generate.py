@@ -105,9 +105,17 @@ class LangValidateSpec(BaseModel):
         default=None,
         description="Name of a GitHub Actions Environment to activate",
     )
+    aws: bool = Field(
+        default=False,
+        description="Log in to AWS in this config. Expects AWS_ROLE, AWS_ROLE_SESSION_NAME secrets",
+    )
     azure: bool = Field(
         default=False,
         description="Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
+    )
+    gcloud: bool = Field(
+        default=False,
+        description="Log in to Google Cloud in this config. Expects GCLOUD_SERVICE_ACCOUNT, GCLOUD_WORKLOAD_IDENTITY_PROVIDER secrets",
     )
 
 
@@ -151,6 +159,18 @@ class LangTestConfig(BaseModel):
     environment: str | None = Field(
         default=None,
         description="Name of a GitHub Actions Environment to activate",
+    )
+    aws: bool = Field(
+        default=False,
+        description="Log in to AWS in this config. Expects AWS_ROLE, AWS_ROLE_SESSION_NAME secrets",
+    )
+    azure: bool = Field(
+        default=False,
+        description="Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
+    )
+    gcloud: bool = Field(
+        default=False,
+        description="Log in to Google Cloud in this config. Expects GCLOUD_SERVICE_ACCOUNT, GCLOUD_WORKLOAD_IDENTITY_PROVIDER secrets",
     )
 
 
@@ -348,7 +368,7 @@ gcloud = true"""
             for lang in self.lang.values()
             if lang
             for config in lang.validation.configs
-        )
+        ) or any(lang.test.azure for lang in self.lang.values() if lang)
 
     @model_validator(mode="after")
     def default_repository(self) -> "GenerateConfig":
