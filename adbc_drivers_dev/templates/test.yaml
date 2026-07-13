@@ -235,6 +235,11 @@ jobs:
 <% endif %>
         working-directory: <{ lang_subdir }>
         run: |
+          if [[ -f ci/scripts/pre-test.sh ]]; then
+            echo "Loading pre-test"
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
+          fi
+
           set -a
           if [[ -f .env ]]; then
             source .env
@@ -246,11 +251,6 @@ jobs:
             source .env.ci
           fi
           set +a
-
-          if [[ -f ci/scripts/pre-test.sh ]]; then
-            echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
-          fi
 
 <% if lang == "go" %>
           go test -tags assert -v ./...
@@ -298,6 +298,8 @@ jobs:
 <% if permissions.get("id_token") %>
       id-token: write
 <% endif %>
+    env:
+      FOUNDRY_GH_ENVIRONMENT: ${{ matrix.environment || '' }}
     steps:
       - name: free up disk space
         if: runner.os != 'Windows'
@@ -430,6 +432,11 @@ jobs:
 <% endif %>
         working-directory: <{ lang_subdir }>
         run: |
+          if [[ -f ci/scripts/pre-test.sh ]]; then
+            echo "Loading pre-test"
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} ${{ matrix.service_name }}
+          fi
+
           set -a
           if [[ -f .env ]]; then
             source .env
@@ -441,11 +448,6 @@ jobs:
             source .env.ci
           fi
           set +a
-
-          if [[ -f ci/scripts/pre-test.sh ]]; then
-            echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} ${{ matrix.service_name }}
-          fi
 
           docker ps
           if [[ -n "${{ matrix.vendor_version }}" ]]; then
