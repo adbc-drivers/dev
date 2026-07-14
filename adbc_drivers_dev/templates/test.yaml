@@ -287,6 +287,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        max-parallel: 3
         include:
           # I think we only need to test one platform, but we can change that later
 <% for config in lang_config.validation.configs %>
