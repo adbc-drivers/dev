@@ -286,6 +286,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true
+      max-parallel: 3
       matrix:
         include:
           # I think we only need to test one platform, but we can change that later
