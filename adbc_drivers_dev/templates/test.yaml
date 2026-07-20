@@ -235,11 +235,6 @@ jobs:
 <% endif %>
         working-directory: <{ lang_subdir }>
         run: |
-          if [[ -f ci/scripts/pre-test.sh ]]; then
-            echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
-          fi
-
           set -a
           if [[ -f .env ]]; then
             source .env
@@ -249,6 +244,18 @@ jobs:
           fi
           if [[ -f .env.ci ]]; then
             source .env.ci
+          fi
+          set +a
+
+          if [[ -f ci/scripts/pre-test.sh ]]; then
+            echo "Loading pre-test"
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} "<{lang_config.test.service_name}>"
+          fi
+
+          # if pre-test.sh needs to override env vars, it can generate this file
+          set -a
+          if [[ -f .env.override ]]; then
+            source .env.override
           fi
           set +a
 
@@ -435,11 +442,6 @@ jobs:
 <% endif %>
         working-directory: <{ lang_subdir }>
         run: |
-          if [[ -f ci/scripts/pre-test.sh ]]; then
-            echo "Loading pre-test"
-            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} ${{ matrix.service_name }}
-          fi
-
           set -a
           if [[ -f .env ]]; then
             source .env
@@ -449,6 +451,18 @@ jobs:
           fi
           if [[ -f .env.ci ]]; then
             source .env.ci
+          fi
+          set +a
+
+          if [[ -f ci/scripts/pre-test.sh ]]; then
+            echo "Loading pre-test"
+            ./ci/scripts/pre-test.sh ${{ matrix.platform }} ${{ matrix.arch }} ${{ matrix.service_name }}
+          fi
+
+          # if pre-test.sh needs to override env vars, it can generate this file
+          set -a
+          if [[ -f .env.override ]]; then
+            source .env.override
           fi
           set +a
 
