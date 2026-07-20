@@ -599,6 +599,10 @@ jobs:
           set +a
           pixi run adbc-make check CI=true VERBOSE=true DRIVER=<{driver}> IMPL_LANG=<{lang}> <{' '.join(lang_config.build.additional_make_args) }><% if release %> RELEASE=true<% endif %>
 
+          if [[ -f ci/scripts/post-build.sh ]]; then
+            ./ci/scripts/post-build.sh release ${{ matrix.platform }} ${{ matrix.arch }}
+          fi
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: drivers-${{ matrix.platform }}-${{ matrix.arch }}
