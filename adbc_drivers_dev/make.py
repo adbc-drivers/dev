@@ -28,6 +28,9 @@ from pathlib import Path
 
 import doit
 import packaging.version
+import tomllib
+
+from . import make_config
 
 HOST_PLATFORM_NAMES = {
     "Darwin": "macos",
@@ -498,137 +501,6 @@ def build_go(
     header.unlink(missing_ok=True)
 
 
-def build_rust(
-    repo_root: Path,
-    driver_root: Path,
-    driver: str,
-    target: str,
-) -> None:
-    strict = to_bool(get_var("RELEASE", "false"))
-    version = detect_version(driver_root, strict=strict)
-    (repo_root / "build").mkdir(exist_ok=True)
-
-    debug = to_bool(get_var("DEBUG", "False"))
-    target_name = target_platform()
-
-    # Note: version embedded in library is determined by Cargo.toml
-    # TODO: check that it matches git tag?
-    args = []
-    if not debug:
-        args.append("--release")
-
-    features = []
-    extra_features = get_var("FEATURES", "")
-    if extra_features:
-        extra_features = extra_features.split(",")
-        extra_features = [tag.strip() for tag in extra_features]
-        extra_features = [tag for tag in extra_features if tag]
-        features.extend(extra_features)
-
-    if features:
-        args.append("--features")
-        args.append(",".join(features))
-
-    info("Building", target, "version", version, "features", features)
-
-    env = {}
-    if platform.system() == "Darwin" and target_name == "macos":
-        # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
-        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
-
-    maybe_build_docker(
-        repo_root=repo_root,
-        driver_root=driver_root,
-        env=env,
-        args=["cargo", "build", *args],
-        container="manylinux-rust",
-    )
-
-    lib = driver_root / "target"
-    if debug:
-        lib = lib / "debug"
-    else:
-        lib = lib / "release"
-
-    source_target = target
-    # Exclusion basically just for Databricks - their crate name is not
-    # "adbc_driver_databricks" but rather "databricks_adbc"
-    if target_name := get_var("TARGET_NAME", ""):
-        source_target = f"lib{target_name}.{target_extension()}"
-    if target_platform() == "windows":
-        source_target = source_target.removeprefix("lib")
-    lib = lib / source_target
-    info("Copying", lib, "to", repo_root / "build" / target)
-
-    lib.rename(repo_root / "build" / target)
-    output = (repo_root / "build" / target).resolve()
-    output.chmod(0o755)
-
-
-def build_script(
-    repo_root: Path,
-    driver_root: Path,
-    driver: str,
-    target: str,
-    *,
-    ci: bool = False,
-) -> None:
-    strict = to_bool(get_var("RELEASE", "false"))
-    version = detect_version(driver_root, strict=strict)
-    (repo_root / "build").mkdir(exist_ok=True)
-
-    debug = to_bool(get_var("DEBUG", "False"))
-    target_name = target_platform()
-
-    args = []
-    if debug:
-        args.append("test")
-    else:
-        args.append("release")
-    args.append(target_name)
-    args.append(target_architecture())
-
-    info("Building", target, "version", version)
-
-    env = {}
-    if platform.system() == "Darwin" and target_name == "macos":
-        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
-
-    args = ["./ci/scripts/build.sh", *args]
-    if ci and target_name == "windows":
-        # Force use of Git Bash on GitHub Actions
-        args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
-
-    toolchain = get_var("TOOLCHAIN", "")
-    if not toolchain:
-        raise ValueError("Must specify TOOLCHAIN=toolchain for script-based build")
-
-    container = {
-        "cpp": "manylinux-cpp",
-        "go": "manylinux",
-        "rust": "manylinux-rust",
-    }.get(toolchain)
-    if container is None:
-        raise ValueError(f"Unsupported TOOLCHAIN={toolchain} for script-based build")
-
-    # if we're using a script, don't invoke docker for Go; the script itself
-    # will invoke docker
-
-    if should_use_docker() and toolchain == "go":
-        check_call(args, cwd=driver_root, env=env)
-    else:
-        maybe_build_docker(
-            repo_root=repo_root,
-            driver_root=driver_root,
-            env=env,
-            args=args,
-            container=container,
-        )
-
-    output = (repo_root / "build" / target).resolve()
-    output.chmod(0o755)
-
-
 def check_linux(binary: Path) -> None:
     check_linux_symbols(read_linux_symbols(binary), binary)
 
@@ -717,21 +589,15 @@ def check(binary: Path) -> None:
 
 
 def task_build():
-    driver = get_var("DRIVER", "")
-    if not driver:
-        raise ValueError("Must specify DRIVER=driver")
-
-    ci = to_bool(get_var("CI", False))
-    lang = get_var("IMPL_LANG", "go").strip().lower()
-
-    repo_root = Path(".").resolve().absolute()
-    driver_root = Path(driver)
-    if driver_root.is_dir():
-        driver_root = driver_root.resolve()
-    elif (
-        Path("./go.mod").is_file() or Path("./Cargo.toml").is_file() or lang == "script"
-    ):
-        driver_root = Path(".").resolve()
+    strict = to_bool(get_var("RELEASE", "false"))
+    driver_root = Path(".").resolve().absolute()
+    repo_root = driver_root
+    while not (repo_root / ".git" / "index").is_file():
+        if repo_root.parent == repo_root:
+            raise ValueError(f"{driver_root} is not in a git repository")
+        repo_root = repo_root.parent
+    version = detect_version(driver_root, strict=strict)
+    info("Building", "version", version)
 
     # Compute dependencies
     file_deps = []
@@ -743,52 +609,48 @@ def task_build():
             elif any(filename.endswith(ext) for ext in extensions):
                 file_deps.append(Path(dirname) / filename)
 
-    target = f"libadbc_driver_{driver}.{target_extension()}"
-
-    if lang == "go":
-        actions = [
-            lambda: build_go(repo_root, driver_root, driver, target),
-        ]
-    elif lang == "rust":
-        actions = [
-            lambda: build_rust(repo_root, driver_root, driver, target),
-        ]
-    elif lang == "script":
-        actions = [
-            lambda: build_script(repo_root, driver_root, driver, target, ci=ci),
-        ]
-    else:
-        raise ValueError(f"Unsupported LANG={lang}")
-
-    targets = [repo_root / "build" / target]
-
+    config = make_config.MakeEnv(
+        ci=to_bool(get_var("CI", "false")),
+        debug=to_bool(get_var("DEBUG", "False")),
+        host_platform=PLATFORM,
+        host_architecture=normalize_arch(platform.machine()),
+        target_platform=target_platform(),
+        target_architecture=target_architecture(),
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version=version,
+    )
+    with (driver_root / "adbc-make.toml").open("rb") as f:
+        raw_make = tomllib.load(f)
+    make = make_config.MakeConfig.model_validate(raw_make)
+    make_plan = make.build_plan(config)
     result = {
-        "actions": actions,
+        "actions": [make_plan.run],
         "file_dep": [str(p) for p in file_deps],
-        "targets": targets,
+        "targets": [str(make_plan.target_path)],
     }
 
     # Force rebuild when cross-compiling (don't use doit cache)
-    if get_var("TARGET", "").strip():
+    if config.is_cross_compile:
         result["uptodate"] = [False]  # codespell:ignore uptodate
 
     return result
 
 
 def task_check():
-    driver = get_var("DRIVER", "")
-    if not driver:
-        raise ValueError("Must specify DRIVER=driver")
+    # driver = get_var("DRIVER", "")
+    # if not driver:
+    #     raise ValueError("Must specify DRIVER=driver")
 
-    repo_root = Path(".").resolve()
-    target = repo_root / "build" / f"libadbc_driver_{driver}.{target_extension()}"
+    # repo_root = Path(".").resolve()
+    # target = repo_root / "build" / f"libadbc_driver_{driver}.{target_extension()}"
 
     return {
         "actions": [
-            lambda: check(target),
+            # lambda: check(target),
         ],
-        "file_dep": [target],
-        "targets": [],
+        # "file_dep": [target],
+        # "targets": [],
     }
 
 
