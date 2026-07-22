@@ -61,6 +61,18 @@ def test_on_tag_subdir(repo):
     assert version == "v1.2.3"
 
 
+def test_on_tag_worktree(repo):
+    subprocess.check_call(["git", "tag", "v1.2.3"], cwd=repo)
+    worktree = repo.parent / f"temp_{repo.name}_worktree"
+    subprocess.check_call(
+        ["git", "worktree", "add", "--quiet", "--detach", worktree], cwd=repo
+    )
+
+    assert (worktree / ".git").is_file()
+    version = detect_version(worktree)
+    assert version == "v1.2.3"
+
+
 def test_after_tag(repo):
     subprocess.check_call(["git", "tag", "v1.2.3"], cwd=repo)
     subprocess.check_call(
