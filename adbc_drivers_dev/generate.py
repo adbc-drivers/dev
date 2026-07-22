@@ -362,7 +362,7 @@ gcloud = true"""
         }
 
     @pydantic.computed_field
-    def azure(self) -> int:
+    def azure(self) -> bool:
         return any(
             config.azure
             for lang in self.lang.values()
