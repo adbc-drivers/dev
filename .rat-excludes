@@ -16,3 +16,4 @@
 go.sum
 pixi.lock
 schema/generate-schema.json
+tests/make/rustdummy/Cargo.lock

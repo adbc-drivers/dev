@@ -1,0 +1,367 @@
+# Copyright (c) 2026 ADBC Drivers Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import functools
+import os
+import platform
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from adbc_drivers_dev.make_config import LangRust, LangScript, MakeConfig, MakeEnv
+
+
+@pytest.fixture(scope="session")
+def rust_driver_root() -> tuple[Path, Path]:
+    repo_root = Path(__file__).parent.parent
+    rust_driver_root = repo_root / "tests" / "make" / "rustdummy"
+    return repo_root, rust_driver_root
+
+
+def debug_subprocess(func: callable) -> callable:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except subprocess.CalledProcessError as e:
+            print(
+                ">>> STDOUT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", file=sys.stderr
+            )
+            print(e.stdout, file=sys.stderr)
+            print(
+                ">>> STDERR >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", file=sys.stderr
+            )
+            print(e.stderr, file=sys.stderr)
+            raise
+
+    return wrapper
+
+
+def test_build_config(rust_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = rust_driver_root
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert config.shared_library_affix == ("lib", ".so")
+    assert not config.use_docker
+
+    config = MakeEnv(
+        ci=False,
+        debug=True,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert not config.use_docker
+
+    config = MakeEnv(
+        ci=False,
+        debug=True,
+        host_platform="macos",
+        host_architecture="arm64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert config.use_docker
+
+    config = MakeEnv(
+        ci=False,
+        debug=True,
+        host_platform="macos",
+        host_architecture="arm64",
+        target_platform="macos",
+        target_architecture="arm64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert not config.use_docker
+
+    config = MakeEnv(
+        ci=True,
+        debug=True,
+        host_platform="macos",
+        host_architecture="arm64",
+        target_platform="macos",
+        target_architecture="arm64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert not config.use_docker
+
+    config = MakeEnv(
+        ci=True,
+        debug=False,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    assert config.use_docker
+
+
+def test_rust_linux_amd64(rust_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = rust_driver_root
+    plat = "linux"
+    arch = "amd64"
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform=plat,
+        host_architecture=arch,
+        target_platform=plat,
+        target_architecture=arch,
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+
+    make_config = MakeConfig(driver="foobar", lang=LangRust(lang="rust", features=[]))
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {}
+    assert plan.commands == [["cargo", "build", "--release"]]
+    assert plan.artifact_path == driver_root / "target" / "release" / "libadbc_dummy.so"
+    assert plan.docker_container is None
+
+    make_config = MakeConfig(
+        driver="foobar", lang=LangRust(lang="rust", features=["foobar"])
+    )
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--release", "--features", "foobar"]]
+
+    config.debug = True
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--features", "foobar"]]
+    assert plan.docker_container is None
+
+    config.debug = False
+    config.ci = True
+    plan = make_config.build_plan(config)
+    assert plan.docker_container == "manylinux-rust"
+
+
+def test_rust_macos_arm64(rust_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = rust_driver_root
+    plat = "macos"
+    arch = "arm64"
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform=plat,
+        host_architecture=arch,
+        target_platform=plat,
+        target_architecture=arch,
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+
+    make_config = MakeConfig(driver="foobar", lang=LangRust(lang="rust", features=[]))
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {
+        "CGO_CFLAGS": "-mmacosx-version-min=11.0",
+        "CGO_LDFLAGS": "-mmacosx-version-min=11.0",
+        "MACOSX_DEPLOYMENT_TARGET": "11.0",
+    }
+    assert plan.commands == [["cargo", "build", "--release"]]
+    assert (
+        plan.artifact_path == driver_root / "target" / "release" / "libadbc_dummy.dylib"
+    )
+    assert plan.docker_container is None
+
+    make_config = MakeConfig(
+        driver="foobar", lang=LangRust(lang="rust", features=["foobar"])
+    )
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--release", "--features", "foobar"]]
+
+    config.debug = True
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--features", "foobar"]]
+    assert plan.docker_container is None
+
+
+def test_rust_windows_amd64(rust_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = rust_driver_root
+    plat = "windows"
+    arch = "amd64"
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform=plat,
+        host_architecture=arch,
+        target_platform=plat,
+        target_architecture=arch,
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+
+    make_config = MakeConfig(driver="foobar", lang=LangRust(lang="rust", features=[]))
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {}
+    assert plan.commands == [["cargo", "build", "--release"]]
+    assert plan.artifact_path == driver_root / "target" / "release" / "adbc_dummy.dll"
+    assert plan.target_path == driver_root / "build" / "libadbc_driver_foobar.dll"
+    assert plan.docker_container is None
+
+    make_config = MakeConfig(
+        driver="foobar", lang=LangRust(lang="rust", features=["foobar"])
+    )
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--release", "--features", "foobar"]]
+
+    config.debug = True
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--features", "foobar"]]
+    assert plan.docker_container is None
+
+
+def test_rust_cross_compile(rust_driver_root: tuple[Path, Path]) -> None:
+    # We only support xcompling from macOS to Linux
+    repo_root, driver_root = rust_driver_root
+    plat = "macos"
+    arch = "arm64"
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform=plat,
+        host_architecture=arch,
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+
+    make_config = MakeConfig(driver="foobar", lang=LangRust(lang="rust", features=[]))
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {}
+    assert plan.commands == [["cargo", "build", "--release"]]
+    assert plan.artifact_path == driver_root / "target" / "release" / "libadbc_dummy.so"
+    assert plan.docker_container == "manylinux-rust"
+
+    make_config = MakeConfig(
+        driver="foobar", lang=LangRust(lang="rust", features=["foobar"])
+    )
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--release", "--features", "foobar"]]
+
+    config.debug = True
+    plan = make_config.build_plan(config)
+    assert plan.commands == [["cargo", "build", "--features", "foobar"]]
+    assert plan.docker_container == "manylinux-rust"
+
+
+def test_script_windows_amd64(rust_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = rust_driver_root
+    config = MakeEnv(
+        ci=True,
+        debug=False,
+        host_platform="windows",
+        host_architecture="amd64",
+        target_platform="windows",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+
+    make_config = MakeConfig(
+        driver="foobar", lang=LangScript(lang="script", toolchain="cpp")
+    )
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {}
+    assert plan.commands == [
+        [
+            r"C:\Program Files\Git\bin\bash.EXE",
+            "./ci/scripts/build.sh",
+            "release",
+            "windows",
+            "amd64",
+        ]
+    ]
+    assert plan.artifact_path is None
+    assert plan.target_path == driver_root / "build" / "libadbc_driver_foobar.dll"
+    assert plan.docker_container is None
+
+
+@debug_subprocess
+def test_rust_actual_debug(rust_driver_root: tuple[Path, Path]) -> None:
+    result = subprocess.check_output(
+        ["adbc-make", "-a", "DEBUG=true"],
+        cwd=rust_driver_root[1],
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    assert "Finished `dev` profile" in result
+    assert "* cargo build" in result
+    assert "* docker" not in result
+
+
+@debug_subprocess
+def test_rust_actual_release(rust_driver_root: tuple[Path, Path]) -> None:
+    env = os.environ.copy()
+    if "CI" in env:
+        del env["CI"]
+    result = subprocess.check_output(
+        ["adbc-make", "-a"],
+        cwd=rust_driver_root[1],
+        text=True,
+        stderr=subprocess.STDOUT,
+        env=env,
+    )
+    assert "Finished `release` profile" in result
+    assert "* cargo build" in result
+    assert "* docker" not in result
+
+
+@debug_subprocess
+def test_rust_actual_release_ci(rust_driver_root: tuple[Path, Path]) -> None:
+    result = subprocess.check_output(
+        ["adbc-make", "-a", "CI=true"],
+        cwd=rust_driver_root[1],
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    print(result)
+    # TODO: force-tag and check version too
+    assert "Finished `release` profile" in result
+    if platform.system() == "Linux":
+        assert "* docker exec" in result
+        assert "-c env cargo build" in result
+    else:
+        assert "* docker exec" not in result
+        assert "* cargo build" in result
