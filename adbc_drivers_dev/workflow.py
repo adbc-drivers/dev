@@ -61,6 +61,10 @@ def template_not_implemented(message: str) -> str:
     raise NotImplementedError(message)
 
 
+def file_exists(root: Path, path: str) -> bool:
+    return (root / path).is_file()
+
+
 def generate_workflows(args) -> int:
     env = jinja2.Environment(
         loader=jinja2.PackageLoader("adbc_drivers_dev"),
@@ -133,6 +137,7 @@ def generate_workflows(args) -> int:
             if lang == "go"
             else langs["go"][1]
         )
+        lang_file_exists = functools.partial(file_exists, args.repository / lang_subdir)
         lang_ctx = {
             "lang": lang,
             "lang_human": lang_human,
@@ -142,6 +147,7 @@ def generate_workflows(args) -> int:
             "go_mod_path": go_mod_path,
             "lang_config": lang_config,
             "lang_tools": lang_tools,
+            "file_exists": lang_file_exists,
         }
 
         write_workflow(
