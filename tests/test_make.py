@@ -27,6 +27,7 @@ from adbc_drivers_dev.make_config import (
     LangScript,
     MakeConfig,
     MakeEnv,
+    merge_build_env,
 )
 
 
@@ -143,6 +144,19 @@ def test_build_config(rust_driver_root: tuple[Path, Path]) -> None:
         version="0.1.0",
     )
     assert config.use_docker
+
+
+def test_merge_build_env() -> None:
+    assert merge_build_env(
+        {"CGO_CFLAGS": "-O2", "OTHER": "old"},
+        {"CGO_CFLAGS": "-mmacosx-version-min=11.0", "OTHER": "new"},
+    ) == {
+        "CGO_CFLAGS": "-O2 -mmacosx-version-min=11.0",
+        "OTHER": "new",
+    }
+    assert merge_build_env(
+        {"CGO_LDFLAGS": ""}, {"CGO_LDFLAGS": "-mmacosx-version-min=11.0"}
+    ) == {"CGO_LDFLAGS": "-mmacosx-version-min=11.0"}
 
 
 def test_go_linux_amd64(go_driver_root: tuple[Path, Path]) -> None:
