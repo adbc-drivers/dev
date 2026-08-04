@@ -21,7 +21,13 @@ from pathlib import Path
 
 import pytest
 
-from adbc_drivers_dev.make_config import LangRust, LangScript, MakeConfig, MakeEnv
+from adbc_drivers_dev.make_config import (
+    LangGo,
+    LangRust,
+    LangScript,
+    MakeConfig,
+    MakeEnv,
+)
 
 
 @pytest.fixture(scope="session")
@@ -29,6 +35,13 @@ def rust_driver_root() -> tuple[Path, Path]:
     repo_root = Path(__file__).parent.parent
     rust_driver_root = repo_root / "tests" / "make" / "rustdummy"
     return repo_root, rust_driver_root
+
+
+@pytest.fixture(scope="session")
+def go_driver_root() -> tuple[Path, Path]:
+    repo_root = Path(__file__).parent.parent
+    go_driver_root = repo_root / "tests" / "make" / "godummy"
+    return repo_root, go_driver_root
 
 
 def debug_subprocess(func: callable) -> callable:
@@ -130,6 +143,115 @@ def test_build_config(rust_driver_root: tuple[Path, Path]) -> None:
         version="0.1.0",
     )
     assert config.use_docker
+
+
+def test_go_linux_amd64(go_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = go_driver_root
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    make_config = MakeConfig(
+        driver="godummy",
+        lang=LangGo(lang="go", go_mod_path="module", build_tags=["custom_feature"]),
+    )
+
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {}
+    assert plan.commands == [
+        [
+            "go",
+            "-C",
+            "module",
+            "build",
+            "-buildmode=c-shared",
+            "-tags=driverlib,custom_feature",
+            "-ldflags=-w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=0.1.0",
+            "-o",
+            "build/libadbc_driver_godummy.so",
+            "./pkg",
+        ]
+    ]
+    assert plan.pre_commands == []
+    assert plan.artifact_path == (
+        driver_root / "module" / "build" / "libadbc_driver_godummy.so"
+    )
+    assert plan.target_path == driver_root / "build" / "libadbc_driver_godummy.so"
+    assert plan.cleanup_paths == [
+        driver_root / "module" / "build" / "libadbc_driver_godummy.h"
+    ]
+    assert plan.docker_container is None
+
+    config.debug = True
+    plan = make_config.build_plan(config)
+    assert "-tags=driverlib,assert,custom_feature" in plan.commands[0]
+
+
+def test_go_linux_amd64_ci(go_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = go_driver_root
+    config = MakeEnv(
+        ci=True,
+        debug=False,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    make_config = MakeConfig(
+        driver="godummy", lang=LangGo(lang="go", go_mod_path="module")
+    )
+
+    plan = make_config.build_plan(config)
+    assert plan.env_vars == {"GOWORK": "off"}
+    assert plan.pre_commands == [["go", "-C", "module", "mod", "vendor"]]
+    assert plan.commands == [
+        [
+            "go",
+            "-C",
+            "module",
+            "build",
+            "-buildmode=c-shared",
+            "-tags=driverlib",
+            "-ldflags=-w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=0.1.0 -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld",
+            "-o",
+            "build/libadbc_driver_godummy.so",
+            "./pkg",
+        ]
+    ]
+    assert plan.docker_container == "manylinux"
+
+
+def test_go_windows_amd64(go_driver_root: tuple[Path, Path]) -> None:
+    repo_root, driver_root = go_driver_root
+    config = MakeEnv(
+        ci=False,
+        debug=False,
+        host_platform="windows",
+        host_architecture="amd64",
+        target_platform="windows",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    make_config = MakeConfig(
+        driver="godummy", lang=LangGo(lang="go", go_mod_path="module")
+    )
+
+    plan = make_config.build_plan(config)
+    assert "build/libadbc_driver_godummy.dll" in plan.commands[0]
+    assert plan.target_path == driver_root / "build" / "libadbc_driver_godummy.dll"
+    assert plan.docker_container is None
 
 
 def test_rust_linux_amd64(rust_driver_root: tuple[Path, Path]) -> None:
@@ -316,6 +438,40 @@ def test_script_windows_amd64(rust_driver_root: tuple[Path, Path]) -> None:
     assert plan.artifact_path is None
     assert plan.target_path == driver_root / "build" / "libadbc_driver_foobar.dll"
     assert plan.docker_container is None
+
+
+@debug_subprocess
+def test_go_actual_release(go_driver_root: tuple[Path, Path]) -> None:
+    _, driver_root = go_driver_root
+    env = os.environ.copy()
+    env.pop("CI", None)
+    result = subprocess.check_output(
+        ["adbc-make", "-a"],
+        cwd=driver_root,
+        text=True,
+        stderr=subprocess.STDOUT,
+        env=env,
+    )
+    assert "* go -C module build" in result
+    assert "* docker" not in result
+    assert (driver_root / "build" / "libadbc_driver_godummy.so").is_file()
+    assert not (driver_root / "module" / "build" / "libadbc_driver_godummy.h").exists()
+
+
+@debug_subprocess
+def test_go_actual_release_ci(go_driver_root: tuple[Path, Path]) -> None:
+    _, driver_root = go_driver_root
+    result = subprocess.check_output(
+        ["adbc-make", "-a", "CI=true"],
+        cwd=driver_root,
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    assert "* go -C module mod vendor" in result
+    assert "* docker exec" in result
+    assert "-linkmode external" in result
+    assert (driver_root / "build" / "libadbc_driver_godummy.so").is_file()
+    assert not (driver_root / "module" / "build" / "libadbc_driver_godummy.h").exists()
 
 
 @debug_subprocess

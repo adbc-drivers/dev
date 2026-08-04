@@ -63,7 +63,6 @@ except KeyError as err:
 DOIT_CONFIG = {
     "default_tasks": ["build"],
 }
-SMUGGLE_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS", "GOWORK", "PROTOC"}
 
 
 def to_bool(value: str | bool) -> bool:
@@ -81,13 +80,6 @@ def to_bool(value: str | bool) -> bool:
 
 def is_verbose() -> bool:
     return to_bool(get_var("VERBOSE", "False"))
-
-
-def append_flags(env: dict[str, str], var: str, flags: str) -> None:
-    if var in env:
-        env[var] += " " + flags
-    else:
-        env[var] = flags
 
 
 def normalize_arch(value: str) -> str:
@@ -330,59 +322,6 @@ def docker_env(repo_root: Path) -> dict[str, str]:
     }
 
 
-def maybe_build_docker(
-    *,
-    repo_root: Path,
-    driver_root: Path,
-    env: dict[str, str],
-    args: list[str],
-    container: str,
-) -> None:
-    if not should_use_docker():
-        check_call(args, cwd=driver_root, env=env)
-        return
-
-    env = env.copy()
-    env["SOURCE_ROOT"] = str(repo_root)
-    env["ARCH"] = target_architecture()
-    env["DOCKER_DEFAULT_PLATFORM"] = docker_platform()
-
-    volumes = get_var("ADDITIONAL_VOLUMES", "")
-    if volumes:
-        volumes = volumes.split(",")
-
-    # Some env vars need to be explicitly propagated into Docker
-    smuggle_env = ""
-    for var in SMUGGLE_VARS:
-        if var in env:
-            smuggle_env += f'{var}="{shlex.quote(env[var])}" '
-        elif var in os.environ:
-            smuggle_env += f'{var}="{shlex.quote(os.environ[var])}" '
-
-    command = [
-        "docker",
-        "compose",
-        "run",
-        "--rm",
-        "--user",
-        str(os.getuid()),
-    ]
-
-    for volume in volumes:
-        command.extend(["-v", volume])
-
-    command.extend(
-        [
-            container,
-            "--",
-            "bash",
-            "-c",
-            f"cd /source/{driver_root.relative_to(repo_root)} && env {smuggle_env} {' '.join(shlex.quote(arg) for arg in args)}",
-        ]
-    )
-    check_call(command, cwd=Path(__file__).parent, env=env)
-
-
 def read_linux_symbols(binary: Path) -> list[str]:
     return check_output(
         [
@@ -411,101 +350,6 @@ def read_linux_symbols_in_docker(repo_root: Path, binary: Path) -> list[str]:
         cwd=Path(__file__).parent,
         env=docker_env(repo_root),
     ).splitlines()
-
-
-def build_go(
-    repo_root: Path,
-    driver_root: Path,
-    driver: str,
-    target: str,
-) -> None:
-    strict = to_bool(get_var("RELEASE", "false"))
-    version = detect_version(driver_root, strict=strict)
-    (repo_root / "build").mkdir(exist_ok=True)
-    target_name = target_platform()
-
-    # Embed the version in the library
-    prop = "github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion"
-    ldflags = " ".join(
-        [
-            # Don't exclude symbols (-s) so panics will have symbol information
-            # This will exclude DWARF debug tables (-w).
-            "-w",
-            f"-X {prop}={version}",
-        ]
-    )
-
-    tags = ["driverlib"]
-    if to_bool(get_var("DEBUG", "False")):
-        tags.append("assert")
-
-    extra_tags = get_var("BUILD_TAGS", "")
-    if extra_tags:
-        extra_tags = extra_tags.split(",")
-        extra_tags = [tag.strip() for tag in extra_tags]
-        extra_tags = [tag for tag in extra_tags if tag]
-        tags.extend(extra_tags)
-
-    tags = ",".join(tags)
-    tags = "-tags=" + tags
-
-    info("Building", target, "version", version)
-
-    env = {}
-    for var in SMUGGLE_VARS:
-        if var in os.environ:
-            env[var] = os.environ[var]
-
-    if platform.system() == "Darwin" and target_name == "macos":
-        append_flags(env, "CGO_CFLAGS", "-mmacosx-version-min=11.0")
-        append_flags(env, "CGO_LDFLAGS", "-mmacosx-version-min=11.0")
-
-    if should_use_docker():
-        vendor_env = {"GOWORK": "off"}
-        check_call(["go", "mod", "vendor"], cwd=driver_root, env=vendor_env)
-        ldflags += (
-            " -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld"
-        )
-
-        # Command differs under Docker so don't invoke this otherwise
-        maybe_build_docker(
-            repo_root=repo_root,
-            driver_root=driver_root,
-            env=env | vendor_env,
-            args=[
-                "go",
-                "build",
-                "-buildmode=c-shared",
-                tags,
-                "-o",
-                f"/source/build/{target}",
-                "-ldflags",
-                ldflags,
-                "./pkg",
-            ],
-            container="manylinux",
-        )
-    else:
-        check_call(
-            [
-                "go",
-                "build",
-                "-buildmode=c-shared",
-                tags,
-                "-o",
-                f"{repo_root / 'build' / target}",
-                "-ldflags",
-                ldflags,
-                "./pkg",
-            ],
-            cwd=driver_root,
-            env=env,
-        )
-
-    output = (repo_root / "build" / target).resolve()
-    output.chmod(0o755)
-    header = output.with_suffix(".h")
-    header.unlink(missing_ok=True)
 
 
 def check_linux(binary: Path) -> None:
