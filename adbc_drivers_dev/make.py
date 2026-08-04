@@ -30,7 +30,7 @@ from pathlib import Path
 import doit
 import packaging.version
 
-from . import make_config
+from . import make_checks, make_config
 
 HOST_PLATFORM_NAMES = {
     "Darwin": "macos",
@@ -311,150 +311,13 @@ def should_use_docker() -> bool:
     return to_bool(get_var("CI", False)) and platform.system() == "Linux"
 
 
-def docker_platform() -> str:
-    return f"{target_platform()}/{target_architecture()}"
-
-
-def docker_env(repo_root: Path) -> dict[str, str]:
-    return {
-        "SOURCE_ROOT": str(repo_root),
-        "DOCKER_DEFAULT_PLATFORM": docker_platform(),
-    }
-
-
-def read_linux_symbols(binary: Path) -> list[str]:
-    return check_output(
-        [
-            "nm",
-            "--demangle",
-            "--dynamic",
-            str(binary),
-        ]
-    ).splitlines()
-
-
-def read_linux_symbols_in_docker(repo_root: Path, binary: Path) -> list[str]:
-    rel_binary = binary.resolve().relative_to(repo_root.resolve())
-    return check_output(
-        [
-            "docker",
-            "compose",
-            "run",
-            "--rm",
-            "manylinux",
-            "nm",
-            "--demangle",
-            "--dynamic",
-            f"/source/{rel_binary.as_posix()}",
-        ],
-        cwd=Path(__file__).parent,
-        env=docker_env(repo_root),
-    ).splitlines()
-
-
-def check_linux(binary: Path) -> None:
-    check_linux_symbols(read_linux_symbols(binary), binary)
-
-
-def check_linux_symbols(symbols: list[str], binary: Path) -> None:
-    # Make sure only 'Adbc*' symbols are exported
-    bad_symbols = []
-    for symbol in symbols:
-        if " T " not in symbol:
-            continue
-        _, _, name = symbol.partition(" T ")
-        if not name.startswith("Adbc"):
-            bad_symbols.append(name)
-    if bad_symbols:
-        raise RuntimeError(
-            f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
-        )
-
-    # Like upstream.  Match manylinux2014's versions.
-    # https://peps.python.org/pep-0599/#the-manylinux2014-policy
-    manylinux = get_var("MANYLINUX", "manylinux2014").lower()
-    if manylinux == "manylinux2014":
-        glibc_max = "2.17"
-        glibcxx_max = "3.4.19"
-    elif manylinux == "manylinux_2_28":
-        glibc_max = "2.28"
-        glibcxx_max = "3.4.32"
-
-    for symbol in symbols:
-        if "@GLIBC_" in symbol:
-            version = packaging.version.Version(symbol.partition("@")[2][6:])
-            if version > packaging.version.Version(glibc_max):
-                raise RuntimeError(
-                    f"{symbol} requires too new a glibc (max {glibc_max})"
-                )
-        elif "@GLIBCXX_" in symbol:
-            version = packaging.version.Version(symbol.partition("@")[2][8:])
-            if version > packaging.version.Version(glibcxx_max):
-                raise RuntimeError(
-                    f"{symbol} requires too new a glibcxx (max {glibcxx_max})"
-                )
-
-
-def check_macos(binary: Path) -> None:
-    output = check_output(["otool", "-l", str(binary)]).splitlines()
-    minos = None
-    for line in output:
-        line = line.strip()
-        if not line.startswith("minos"):
-            continue
-        _, _, minos = line.partition(" ")
-        break
-
-    if minos is None:
-        raise RuntimeError("Could not determine minimum macOS version")
-
-    minos = packaging.version.Version(minos)
-    maxos = packaging.version.Version("11.0")
-
-    if minos > maxos:
-        raise RuntimeError(
-            f"{binary} requires macOS {minos} but {maxos} was expected at most"
-        )
-
-
-def check(binary: Path) -> None:
-    if target_platform() == "linux":
-        if platform.system() != "Linux":
-            if should_use_docker():
-                repo_root = Path(".").resolve()
-                check_linux_symbols(
-                    read_linux_symbols_in_docker(repo_root, binary),
-                    binary,
-                )
-            else:
-                info(
-                    "Skipping Linux compatibility checks on non-Linux host (no Docker)"
-                )
-            return
-        check_linux(binary)
-    elif target_platform() == "macos":
-        if platform.system() != "Darwin":
-            info("Skipping macOS compatibility checks on non-macOS host")
-            return
-        check_macos(binary)
-
-
-def task_build():
+def _load_build_context() -> tuple[
+    make_config.MakeEnv, make_config.MakeConfig, make_config.MakePlan
+]:
     strict = to_bool(get_var("RELEASE", "false"))
     driver_root = Path(".").resolve().absolute()
     repo_root = _find_repo_root(driver_root)
     version = detect_version(driver_root, strict=strict)
-
-    # Compute dependencies
-    file_deps = []
-    file_deps.append(driver_root / "adbc-make.toml")
-    extensions = [".go", ".c", ".cc", ".cpp", ".h", ".rs"]
-    for dirname, _, filenames in driver_root.walk():
-        for filename in filenames:
-            if filename in {"go.mod", "go.sum", "Cargo.toml", "Cargo.lock"}:
-                file_deps.append(Path(dirname) / filename)
-            elif any(filename.endswith(ext) for ext in extensions):
-                file_deps.append(Path(dirname) / filename)
 
     make_env = make_config.MakeEnv(
         ci=to_bool(get_var("CI", "false")),
@@ -470,7 +333,24 @@ def task_build():
     with (driver_root / "adbc-make.toml").open("rb") as f:
         raw_make = tomllib.load(f)
     make = make_config.MakeConfig.model_validate(raw_make)
-    make_plan = make.build_plan(make_env)
+    return make_env, make, make.build_plan(make_env)
+
+
+def task_build():
+    make_env, make, make_plan = _load_build_context()
+    driver_root = make_env.driver_root
+
+    # Compute dependencies
+    file_deps = []
+    file_deps.append(driver_root / "adbc-make.toml")
+    extensions = [".go", ".c", ".cc", ".cpp", ".h", ".rs"]
+    for dirname, _, filenames in driver_root.walk():
+        for filename in filenames:
+            if filename in {"go.mod", "go.sum", "Cargo.toml", "Cargo.lock"}:
+                file_deps.append(Path(dirname) / filename)
+            elif any(filename.endswith(ext) for ext in extensions):
+                file_deps.append(Path(dirname) / filename)
+
     result = {
         "actions": [make_plan.run],
         "file_dep": [str(p) for p in file_deps],
@@ -489,19 +369,14 @@ def task_build():
 
 
 def task_check():
-    # driver = get_var("DRIVER", "")
-    # if not driver:
-    #     raise ValueError("Must specify DRIVER=driver")
-
-    # repo_root = Path(".").resolve()
-    # target = repo_root / "build" / f"libadbc_driver_{driver}.{target_extension()}"
+    make_env, make, make_plan = _load_build_context()
+    target = make_plan.target_path
 
     return {
-        "actions": [
-            # lambda: check(target),
-        ],
-        # "file_dep": [target],
-        # "targets": [],
+        "actions": [lambda: make_checks.check(make_env, make, target)],
+        "task_dep": ["build"],
+        "file_dep": [str(target)],
+        "targets": [],
     }
 
 
