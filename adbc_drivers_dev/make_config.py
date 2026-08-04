@@ -26,6 +26,20 @@ from pydantic import BaseModel, Field
 
 _GO_VERSION_FLAG = "github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion"
 _SMUGGLE_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS", "GOWORK", "PROTOC"}
+_APPEND_ENV_VARS = {"CGO_CFLAGS", "CGO_LDFLAGS"}
+
+
+def merge_build_env(
+    base: typing.Mapping[str, str], overrides: typing.Mapping[str, str]
+) -> dict[str, str]:
+    """Merge build variables, preserving user-supplied CGO flags."""
+    env = dict(base)
+    for key, value in overrides.items():
+        if key in _APPEND_ENV_VARS and env.get(key):
+            env[key] += " " + value
+        else:
+            env[key] = value
+    return env
 
 
 class MakeEnv(BaseModel):
@@ -115,11 +129,10 @@ class MakePlan(BaseModel):
                 f"[{self.make_env.driver_root}]",
                 file=sys.stderr,
             )
-            # TODO: certain env vars need more merging
             subprocess.run(
                 command,
                 cwd=self.make_env.driver_root,
-                env={**os.environ, **self.env_vars},
+                env=merge_build_env(os.environ, self.env_vars),
                 check=True,
             )
 
@@ -133,7 +146,7 @@ class MakePlan(BaseModel):
         build_env = {
             key: value for key, value in os.environ.items() if key in _SMUGGLE_VARS
         }
-        build_env.update(self.env_vars)
+        build_env = merge_build_env(build_env, self.env_vars)
         inner_env = ["env"]
         inner_env += [f"{key}={shlex.quote(value)}" for key, value in build_env.items()]
 

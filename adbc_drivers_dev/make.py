@@ -447,6 +447,7 @@ def task_build():
 
     # Compute dependencies
     file_deps = []
+    file_deps.append(driver_root / "adbc-make.toml")
     extensions = [".go", ".c", ".cc", ".cpp", ".h", ".rs"]
     for dirname, _, filenames in driver_root.walk():
         for filename in filenames:
