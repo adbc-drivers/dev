@@ -90,6 +90,14 @@ class MakePlan(BaseModel):
     commands: list[list[str]] = Field(
         default_factory=list, description="The commands to run to build the driver"
     )
+    pre_commands: list[list[str]] = Field(
+        default_factory=list,
+        description="Commands to run directly on the host before building the driver",
+    )
+    cleanup_paths: list[Path] = Field(
+        default_factory=list,
+        description="Generated files to remove after building the driver",
+    )
     artifact_path: Path | None
     docker_container: str | None
 
@@ -99,9 +107,8 @@ class MakePlan(BaseModel):
         output_name = self.make_env.shared_library_name(self.make_config.driver)
         return output_dir / output_name
 
-    def _run_direct(self) -> None:
-        # TODO: port over other stuff from make.py
-        for command in self.commands:
+    def _run_direct(self, commands: list[list[str]]) -> None:
+        for command in commands:
             print(
                 "*",
                 " ".join(shlex.quote(arg) for arg in command),
@@ -238,13 +245,18 @@ class MakePlan(BaseModel):
     def run(self) -> None:
         target_path = self.target_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.artifact_path is not None:
+            self.artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        self._run_direct(self.pre_commands)
         if self.docker_container is not None:
             self._run_docker()
         else:
-            self._run_direct()
+            self._run_direct(self.commands)
         if self.artifact_path is not None:
             self.artifact_path.resolve().copy(self.target_path)
         self.target_path.chmod(0o755)
+        for path in self.cleanup_paths:
+            path.unlink(missing_ok=True)
 
 
 class LangGo(BaseModel):
@@ -255,6 +267,8 @@ class LangGo(BaseModel):
     }
 
     lang: typing.Literal["go"]
+    build_tags: list[str] = Field(default_factory=list, alias="build-tags")
+    go_mod_path: str | None = Field(default=None, alias="go-mod-path")
 
 
 class LangRust(BaseModel):
@@ -322,6 +336,8 @@ class MakeConfig(BaseModel):
         env_vars = default_build_env(config)
 
         if isinstance(self.lang, LangGo):
+            module_path = Path(self.lang.go_mod_path or ".")
+            module_root = config.driver_root / module_path
             ldflags = [
                 # Don't exclude symbols so panics will have symbol information
                 # "-s",
@@ -333,31 +349,56 @@ class MakeConfig(BaseModel):
             tags = ["driverlib"]
             if config.debug:
                 tags.append("assert")
+            tags.extend(self.lang.build_tags)
 
-            # TODO: figure out what to do about extra tags, since some are injected dynamically
-            # TODO: docker
+            go = ["go"]
+            if self.lang.go_mod_path:
+                go.extend(["-C", str(module_path)])
 
-            # TODO: rename config to make_env
-            artifact_name = config.shared_library_name(self.driver)
-            artifact_path = config.driver_root / "build" / artifact_name
+            output_name = config.shared_library_name(self.driver)
+            module_output = module_root / "build" / output_name
             args = [
-                "go",
+                *go,
                 "build",
                 "-buildmode=c-shared",
                 f"-tags={','.join(tags)}",
-                f"-ldflags={' '.join(ldflags)}",
-                "-o",
-                str(artifact_path),
-                "./pkg",
             ]
+
+            pre_commands = []
+            docker_container = None
+            if config.use_docker:
+                env_vars["GOWORK"] = "off"
+                pre_commands.append([*go, "mod", "vendor"])
+                ldflags.extend(
+                    [
+                        "-linkmode external",
+                        "-extldflags=-Wl,--version-script=/only-export-adbc.ld",
+                    ]
+                )
+                docker_container = "manylinux"
+
+            args.extend(
+                [
+                    f"-ldflags={' '.join(ldflags)}",
+                    "-o",
+                    str(Path("build") / output_name),
+                    "./pkg",
+                ]
+            )
+
+            artifact_path = None
+            if module_root != config.driver_root:
+                artifact_path = module_output
 
             return MakePlan(
                 make_env=config,
                 make_config=self,
                 env_vars=env_vars,
                 commands=[args],
-                artifact_path=None,
-                docker_container=None,
+                pre_commands=pre_commands,
+                cleanup_paths=[module_output.with_suffix(".h")],
+                artifact_path=artifact_path,
+                docker_container=docker_container,
             )
 
         elif isinstance(self.lang, LangRust):
