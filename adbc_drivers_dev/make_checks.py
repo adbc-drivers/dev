@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Post-build checks for compiled driver binaries."""
+
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import packaging.version
@@ -109,11 +110,9 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
     elif make_env.use_docker:
         symbols = _read_linux_symbols_in_docker(make_env, make_config, binary)
     else:
-        print(
-            "? Skipping Linux compatibility checks on non-Linux host (no Docker)",
-            file=sys.stderr,
+        raise RuntimeError(
+            "Cannot not run Linux compatibility checks on non-Linux host without Docker"
         )
-        return
     check_linux_symbols(symbols, binary, make_config.manylinux)
 
 
@@ -141,10 +140,5 @@ def check(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> None:
     if make_env.target_platform == "linux":
         _check_linux(make_env, make_config, binary)
     elif make_env.target_platform == "macos":
-        if make_env.host_platform != "macos":
-            print(
-                "? Skipping macOS compatibility checks on non-macOS host",
-                file=sys.stderr,
-            )
-            return
         _check_macos(binary)
+    # TODO: implement Windows checks
