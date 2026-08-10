@@ -139,13 +139,17 @@ class MakePlan(BaseModel):
                 check=True,
             )
 
-    def _run_docker(self) -> None:
-        outer_env = {
+    def _docker_outer_env(self) -> dict[str, str]:
+        return {
             **os.environ,
             "SOURCE_ROOT": str(self.make_env.repo_root),
             "ARCH": self.make_env.target_architecture,
             "DOCKER_DEFAULT_PLATFORM": f"{self.make_env.target_platform}/{self.make_env.target_architecture}",
+            "MANYLINUX": self.make_config.manylinux,
         }
+
+    def _run_docker(self) -> None:
+        outer_env = self._docker_outer_env()
         build_env = {
             key: value for key, value in os.environ.items() if key in _SMUGGLE_VARS
         }

@@ -159,6 +159,41 @@ def test_merge_build_env() -> None:
     ) == {"CGO_LDFLAGS": "-mmacosx-version-min=11.0"}
 
 
+def test_manylinux_config_overrides_environment(
+    monkeypatch: pytest.MonkeyPatch, rust_driver_root: tuple[Path, Path]
+) -> None:
+    repo_root, driver_root = rust_driver_root
+    monkeypatch.setenv("MANYLINUX", "manylinux2014")
+    config = MakeEnv(
+        ci=True,
+        debug=False,
+        host_platform="linux",
+        host_architecture="amd64",
+        target_platform="linux",
+        target_architecture="amd64",
+        repo_root=repo_root,
+        driver_root=driver_root,
+        version="0.1.0",
+    )
+    make_config = MakeConfig(
+        driver="rustdummy",
+        lang=LangRust(lang="rust"),
+        manylinux="manylinux_2_28",
+    )
+
+    plan = make_config.build_plan(config)
+
+    assert plan._docker_outer_env()["MANYLINUX"] == "manylinux_2_28"
+
+
+def shared_library_affix() -> tuple[str, str]:
+    return {
+        "Darwin": ("lib", ".dylib"),
+        "Linux": ("lib", ".so"),
+        "Windows": ("lib", ".dll"),
+    }[platform.system()]
+
+
 def test_go_linux_amd64(go_driver_root: tuple[Path, Path]) -> None:
     repo_root, driver_root = go_driver_root
     config = MakeEnv(
@@ -457,6 +492,7 @@ def test_script_windows_amd64(rust_driver_root: tuple[Path, Path]) -> None:
 @debug_subprocess
 def test_go_actual_release(go_driver_root: tuple[Path, Path]) -> None:
     _, driver_root = go_driver_root
+    prefix, suffix = shared_library_affix()
     env = os.environ.copy()
     env.pop("CI", None)
     result = subprocess.check_output(
@@ -468,13 +504,14 @@ def test_go_actual_release(go_driver_root: tuple[Path, Path]) -> None:
     )
     assert "* go -C module build" in result
     assert "* docker" not in result
-    assert (driver_root / "build" / "libadbc_driver_godummy.so").is_file()
+    assert (driver_root / "build" / f"{prefix}adbc_driver_godummy{suffix}").is_file()
     assert not (driver_root / "module" / "build" / "libadbc_driver_godummy.h").exists()
 
 
 @debug_subprocess
 def test_go_actual_release_ci(go_driver_root: tuple[Path, Path]) -> None:
     _, driver_root = go_driver_root
+    prefix, suffix = shared_library_affix()
     result = subprocess.check_output(
         ["adbc-make", "-a", "CI=true"],
         cwd=driver_root,
@@ -482,14 +519,19 @@ def test_go_actual_release_ci(go_driver_root: tuple[Path, Path]) -> None:
         stderr=subprocess.STDOUT,
     )
     assert "* go -C module mod vendor" in result
-    assert "* docker exec" in result
-    assert "-linkmode external" in result
-    assert (driver_root / "build" / "libadbc_driver_godummy.so").is_file()
+    if platform.system() == "Linux":
+        assert "* docker exec" in result
+        assert "-linkmode external" in result
+    else:
+        assert "* docker" not in result
+        assert "-linkmode external" not in result
+    assert (driver_root / "build" / f"{prefix}adbc_driver_godummy{suffix}").is_file()
     assert not (driver_root / "module" / "build" / "libadbc_driver_godummy.h").exists()
 
 
 @debug_subprocess
 def test_rust_actual_debug(rust_driver_root: tuple[Path, Path]) -> None:
+    prefix, suffix = shared_library_affix()
     result = subprocess.check_output(
         ["adbc-make", "-a", "DEBUG=true"],
         cwd=rust_driver_root[1],
@@ -499,10 +541,14 @@ def test_rust_actual_debug(rust_driver_root: tuple[Path, Path]) -> None:
     assert "Finished `dev` profile" in result
     assert "* cargo build" in result
     assert "* docker" not in result
+    assert (
+        rust_driver_root[1] / "build" / f"{prefix}adbc_driver_rustdummy{suffix}"
+    ).is_file()
 
 
 @debug_subprocess
 def test_rust_actual_release(rust_driver_root: tuple[Path, Path]) -> None:
+    prefix, suffix = shared_library_affix()
     env = os.environ.copy()
     if "CI" in env:
         del env["CI"]
@@ -516,10 +562,14 @@ def test_rust_actual_release(rust_driver_root: tuple[Path, Path]) -> None:
     assert "Finished `release` profile" in result
     assert "* cargo build" in result
     assert "* docker" not in result
+    assert (
+        rust_driver_root[1] / "build" / f"{prefix}adbc_driver_rustdummy{suffix}"
+    ).is_file()
 
 
 @debug_subprocess
 def test_rust_actual_release_ci(rust_driver_root: tuple[Path, Path]) -> None:
+    prefix, suffix = shared_library_affix()
     result = subprocess.check_output(
         ["adbc-make", "-a", "CI=true"],
         cwd=rust_driver_root[1],
@@ -535,3 +585,6 @@ def test_rust_actual_release_ci(rust_driver_root: tuple[Path, Path]) -> None:
     else:
         assert "* docker exec" not in result
         assert "* cargo build" in result
+    assert (
+        rust_driver_root[1] / "build" / f"{prefix}adbc_driver_rustdummy{suffix}"
+    ).is_file()
