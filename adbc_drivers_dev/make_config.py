@@ -59,18 +59,21 @@ class MakeEnv(BaseModel):
 
     @property
     def shared_library_affix(self) -> tuple[str, str]:
+        """Prefix/suffix for name of library to generate."""
         if self.target_platform == "linux":
             return ("lib", ".so")
         elif self.target_platform == "macos":
             return ("lib", ".dylib")
         elif self.target_platform == "windows":
-            # For CI, we always prefix the final artifact with "lib"
+            # For CI, we always prefix the final artifact with "lib", though
+            # that's not typical on Windows. Hence source_library_affix below.
             return ("lib", ".dll")
         else:
             raise ValueError(f"Unknown target platform: {self.target_platform}")
 
     @property
     def source_library_affix(self) -> tuple[str, str]:
+        """Prefix/suffix for name of library to copy from."""
         if self.target_platform == "windows":
             return ("", ".dll")
         return self.shared_library_affix
@@ -224,7 +227,6 @@ class MakePlan(BaseModel):
 
                 workdir = f"/source/{self.make_env.driver_root.relative_to(self.make_env.repo_root)}"
                 for command in self.commands:
-                    # TODO: inner_env, user
                     if proc.poll() is not None:
                         raise RuntimeError(
                             f"Docker container {container_name} exited unexpectedly"
