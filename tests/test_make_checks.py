@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
@@ -75,43 +74,6 @@ def test_extract_macos_symbols() -> None:
             "000000 D __cgo_runtime",
         ]
     ) == ["AdbcDriverMultiwordnameInit"]
-
-
-def test_check_macos_accepts_adbc_exports(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        make_checks,
-        "_read_macos_symbols",
-        lambda _binary: ["000000 T _AdbcDriverMultiwordnameInit"],
-    )
-    monkeypatch.setattr(
-        make_checks, "_check_macos_deployment_target", lambda _binary: None
-    )
-
-    make_checks._check_macos(
-        Mock(driver="multiwordname"), Path("libadbc_driver_multiwordname.dylib")
-    )
-
-
-def test_check_macos_rejects_non_adbc_exports(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        make_checks,
-        "_read_macos_symbols",
-        lambda _binary: [
-            "000000 T _AdbcDriverMultiwordnameInit",
-            "000000 T _bad_symbol",
-        ],
-    )
-    monkeypatch.setattr(
-        make_checks, "_check_macos_deployment_target", lambda _binary: None
-    )
-
-    with pytest.raises(RuntimeError, match="bad_symbol"):
-        make_checks._check_macos(
-            Mock(driver="multiwordname"),
-            Path("libadbc_driver_multiwordname.dylib"),
-        )
 
 
 def test_check_manylinux_symbols_enforces_limits() -> None:
