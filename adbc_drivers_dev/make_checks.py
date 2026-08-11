@@ -111,7 +111,7 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
         symbols = _read_linux_symbols_in_docker(make_env, make_config, binary)
     else:
         raise RuntimeError(
-            "Cannot not run Linux compatibility checks on non-Linux host without Docker"
+            "Cannot run Linux compatibility checks on non-Linux host without Docker"
         )
     check_linux_symbols(symbols, binary, make_config.manylinux)
 
