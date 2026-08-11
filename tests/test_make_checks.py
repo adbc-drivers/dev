@@ -24,39 +24,69 @@ def test_check_linux_symbols_accepts_adbc_exports() -> None:
         [
             "000000 T AdbcDatabaseNew",
             "000000 T AdbcConnectionInit",
+            "000000 T AdbcDriverMultiwordnameInit",
             "         U external_symbol",
             "000000 B _cgo_runtime",
         ],
         Path("driver.so"),
         "manylinux2014",
+        "multiwordname",
     )
 
 
 def test_check_linux_symbols_rejects_non_adbc_exports() -> None:
     with pytest.raises(RuntimeError, match="bad_symbol"):
         make_checks.check_linux_symbols(
-            ["000000 T AdbcDatabaseNew", "000000 T bad_symbol"],
+            [
+                "000000 T AdbcDatabaseNew",
+                "000000 T AdbcDriverDriverInit",
+                "000000 T bad_symbol",
+            ],
             Path("driver.so"),
             "manylinux2014",
+            "driver",
+        )
+
+
+def test_check_linux_symbols_requires_driver_init() -> None:
+    with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
+        make_checks.check_linux_symbols(
+            ["000000 T AdbcDriverMultiWordNameInit"],
+            Path("libadbc_driver_multiwordname.so"),
+            "manylinux2014",
+            "multiwordname",
         )
 
 
 def test_check_linux_symbols_enforces_manylinux_limits() -> None:
     with pytest.raises(RuntimeError, match="GLIBC_2.18"):
         make_checks.check_linux_symbols(
-            [" U function@GLIBC_2.18"], Path("driver.so"), "manylinux2014"
+            ["000000 T AdbcDriverDriverInit", " U function@GLIBC_2.18"],
+            Path("driver.so"),
+            "manylinux2014",
+            "driver",
         )
 
     make_checks.check_linux_symbols(
-        [" U function@GLIBC_2.28", " U function@GLIBCXX_3.4.32"],
+        [
+            "000000 T AdbcDriverDriverInit",
+            " U function@GLIBC_2.28",
+            " U function@GLIBCXX_3.4.32",
+        ],
         Path("driver.so"),
         "manylinux_2_28",
+        "driver",
     )
 
 
 def test_check_linux_symbols_rejects_unknown_policy() -> None:
     with pytest.raises(ValueError, match="Unsupported manylinux policy"):
-        make_checks.check_linux_symbols([], Path("driver.so"), "unknown")
+        make_checks.check_linux_symbols(
+            ["000000 T AdbcDriverDriverInit"],
+            Path("driver.so"),
+            "unknown",
+            "driver",
+        )
 
 
 def test_check_macos_rejects_new_deployment_target(

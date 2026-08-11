@@ -67,18 +67,26 @@ def _read_linux_symbols_in_docker(
     )
 
 
-def check_linux_symbols(symbols: list[str], binary: Path, manylinux: str) -> None:
+def check_linux_symbols(
+    symbols: list[str], binary: Path, manylinux: str, driver: str
+) -> None:
     bad_symbols = []
+    exported_symbols = set()
     for symbol in symbols:
         if " T " not in symbol:
             continue
         _, _, name = symbol.partition(" T ")
+        exported_symbols.add(name)
         if not name.startswith("Adbc"):
             bad_symbols.append(name)
     if bad_symbols:
         raise RuntimeError(
             f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
         )
+
+    driver_init = f"AdbcDriver{driver.lower().capitalize()}Init"
+    if driver_init not in exported_symbols:
+        raise RuntimeError(f"{driver_init} should be exported from {binary}")
 
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
@@ -113,7 +121,7 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
         raise RuntimeError(
             "Cannot run Linux compatibility checks on non-Linux host without Docker"
         )
-    check_linux_symbols(symbols, binary, make_config.manylinux)
+    check_linux_symbols(symbols, binary, make_config.manylinux, make_config.driver)
 
 
 def _check_macos(binary: Path) -> None:
