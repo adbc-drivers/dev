@@ -24,6 +24,7 @@ def test_check_linux_symbols_accepts_adbc_exports() -> None:
         [
             "000000 T AdbcDatabaseNew",
             "000000 T AdbcConnectionInit",
+            "000000 T AdbcDriverInit",
             "000000 T AdbcDriverMultiwordnameInit",
             "         U external_symbol",
             "000000 B _cgo_runtime",
@@ -39,6 +40,7 @@ def test_check_linux_symbols_rejects_non_adbc_exports() -> None:
         make_checks.check_linux_symbols(
             [
                 "000000 T AdbcDatabaseNew",
+                "000000 T AdbcDriverInit",
                 "000000 T AdbcDriverDriverInit",
                 "000000 T bad_symbol",
             ],
@@ -51,7 +53,17 @@ def test_check_linux_symbols_rejects_non_adbc_exports() -> None:
 def test_check_linux_symbols_requires_driver_init() -> None:
     with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
         make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverMultiWordNameInit"],
+            ["000000 T AdbcDriverInit", "000000 T AdbcDriverMultiWordNameInit"],
+            Path("libadbc_driver_multiwordname.so"),
+            "manylinux2014",
+            "multiwordname",
+        )
+
+
+def test_check_linux_symbols_requires_generic_driver_init() -> None:
+    with pytest.raises(RuntimeError, match="AdbcDriverInit"):
+        make_checks.check_linux_symbols(
+            ["000000 T AdbcDriverMultiwordnameInit"],
             Path("libadbc_driver_multiwordname.so"),
             "manylinux2014",
             "multiwordname",
@@ -61,7 +73,11 @@ def test_check_linux_symbols_requires_driver_init() -> None:
 def test_check_linux_symbols_enforces_manylinux_limits() -> None:
     with pytest.raises(RuntimeError, match="GLIBC_2.18"):
         make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverDriverInit", " U function@GLIBC_2.18"],
+            [
+                "000000 T AdbcDriverInit",
+                "000000 T AdbcDriverDriverInit",
+                " U function@GLIBC_2.18",
+            ],
             Path("driver.so"),
             "manylinux2014",
             "driver",
@@ -69,6 +85,7 @@ def test_check_linux_symbols_enforces_manylinux_limits() -> None:
 
     make_checks.check_linux_symbols(
         [
+            "000000 T AdbcDriverInit",
             "000000 T AdbcDriverDriverInit",
             " U function@GLIBC_2.28",
             " U function@GLIBCXX_3.4.32",
@@ -82,7 +99,7 @@ def test_check_linux_symbols_enforces_manylinux_limits() -> None:
 def test_check_linux_symbols_rejects_unknown_policy() -> None:
     with pytest.raises(ValueError, match="Unsupported manylinux policy"):
         make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverDriverInit"],
+            ["000000 T AdbcDriverInit", "000000 T AdbcDriverDriverInit"],
             Path("driver.so"),
             "unknown",
             "driver",

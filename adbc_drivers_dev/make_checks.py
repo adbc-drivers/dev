@@ -85,8 +85,12 @@ def check_linux_symbols(
         )
 
     driver_init = f"AdbcDriver{driver.lower().capitalize()}Init"
-    if driver_init not in exported_symbols:
-        raise RuntimeError(f"{driver_init} should be exported from {binary}")
+    missing_symbols = set()
+    for required_symbol in (driver_init, "AdbcDriverInit"):
+        if required_symbol not in exported_symbols:
+            missing_symbols.add(required_symbol)
+    if missing_symbols:
+        raise RuntimeError(f"{', '.join(missing_symbols)} should be exported from {binary}")
 
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
