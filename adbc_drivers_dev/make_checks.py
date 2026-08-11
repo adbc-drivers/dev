@@ -90,7 +90,9 @@ def check_linux_symbols(
         if required_symbol not in exported_symbols:
             missing_symbols.add(required_symbol)
     if missing_symbols:
-        raise RuntimeError(f"{', '.join(missing_symbols)} should be exported from {binary}")
+        raise RuntimeError(
+            f"{', '.join(missing_symbols)} should be exported from {binary}"
+        )
 
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
