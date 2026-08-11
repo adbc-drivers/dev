@@ -13,97 +13,123 @@
 # limitations under the License.
 
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from adbc_drivers_dev import make_checks
 
 
-def test_check_linux_symbols_accepts_adbc_exports() -> None:
-    make_checks.check_linux_symbols(
+def test_check_symbols_accepts_adbc_exports() -> None:
+    make_checks.check_symbols(
         [
-            "000000 T AdbcDatabaseNew",
-            "000000 T AdbcConnectionInit",
-            "000000 T AdbcDriverInit",
-            "000000 T AdbcDriverMultiwordnameInit",
-            "         U external_symbol",
-            "000000 B _cgo_runtime",
+            "AdbcDatabaseNew",
+            "AdbcConnectionInit",
+            "AdbcDriverMultiwordnameInit",
+            "AdbcDriverInit",
         ],
         Path("driver.so"),
-        "manylinux2014",
         "multiwordname",
     )
 
 
-def test_check_linux_symbols_rejects_non_adbc_exports() -> None:
+def test_check_symbols_rejects_non_adbc_exports() -> None:
     with pytest.raises(RuntimeError, match="bad_symbol"):
-        make_checks.check_linux_symbols(
+        make_checks.check_symbols(
             [
-                "000000 T AdbcDatabaseNew",
-                "000000 T AdbcDriverInit",
-                "000000 T AdbcDriverDriverInit",
-                "000000 T bad_symbol",
+                "AdbcDatabaseNew",
+                "AdbcDriverDriverInit",
+                "AdbcDriverInit",
+                "bad_symbol",
             ],
             Path("driver.so"),
-            "manylinux2014",
             "driver",
         )
 
 
-def test_check_linux_symbols_requires_driver_init() -> None:
+def test_check_symbols_requires_driver_init() -> None:
     with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
-        make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverInit", "000000 T AdbcDriverMultiWordNameInit"],
+        make_checks.check_symbols(
+            ["AdbcDriverMultiWordNameInit"],
             Path("libadbc_driver_multiwordname.so"),
-            "manylinux2014",
             "multiwordname",
         )
 
 
-def test_check_linux_symbols_requires_generic_driver_init() -> None:
-    with pytest.raises(RuntimeError, match="AdbcDriverInit"):
-        make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverMultiwordnameInit"],
-            Path("libadbc_driver_multiwordname.so"),
-            "manylinux2014",
-            "multiwordname",
-        )
-
-
-def test_check_linux_symbols_enforces_manylinux_limits() -> None:
-    with pytest.raises(RuntimeError, match="GLIBC_2.18"):
-        make_checks.check_linux_symbols(
-            [
-                "000000 T AdbcDriverInit",
-                "000000 T AdbcDriverDriverInit",
-                " U function@GLIBC_2.18",
-            ],
-            Path("driver.so"),
-            "manylinux2014",
-            "driver",
-        )
-
-    make_checks.check_linux_symbols(
+def test_extract_linux_symbols() -> None:
+    assert make_checks._extract_linux_symbols(
         [
             "000000 T AdbcDriverInit",
             "000000 T AdbcDriverDriverInit",
-            " U function@GLIBC_2.28",
-            " U function@GLIBCXX_3.4.32",
-        ],
-        Path("driver.so"),
-        "manylinux_2_28",
-        "driver",
+            "         U external_symbol",
+            "000000 B _cgo_runtime",
+        ]
+    ) == ["AdbcDriverDriverInit"]
+
+
+def test_extract_macos_symbols() -> None:
+    assert make_checks._extract_macos_symbols(
+        [
+            "000000 T _AdbcDriverMultiwordnameInit",
+            "000000 U _external_symbol",
+            "000000 D __cgo_runtime",
+        ]
+    ) == ["AdbcDriverMultiwordnameInit"]
+
+
+def test_check_macos_accepts_adbc_exports(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        make_checks,
+        "_read_macos_symbols",
+        lambda _binary: ["000000 T _AdbcDriverMultiwordnameInit"],
+    )
+    monkeypatch.setattr(
+        make_checks, "_check_macos_deployment_target", lambda _binary: None
+    )
+
+    make_checks._check_macos(
+        Mock(driver="multiwordname"), Path("libadbc_driver_multiwordname.dylib")
     )
 
 
-def test_check_linux_symbols_rejects_unknown_policy() -> None:
-    with pytest.raises(ValueError, match="Unsupported manylinux policy"):
-        make_checks.check_linux_symbols(
-            ["000000 T AdbcDriverInit", "000000 T AdbcDriverDriverInit"],
-            Path("driver.so"),
-            "unknown",
-            "driver",
+def test_check_macos_rejects_non_adbc_exports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        make_checks,
+        "_read_macos_symbols",
+        lambda _binary: [
+            "000000 T _AdbcDriverMultiwordnameInit",
+            "000000 T _bad_symbol",
+        ],
+    )
+    monkeypatch.setattr(
+        make_checks, "_check_macos_deployment_target", lambda _binary: None
+    )
+
+    with pytest.raises(RuntimeError, match="bad_symbol"):
+        make_checks._check_macos(
+            Mock(driver="multiwordname"),
+            Path("libadbc_driver_multiwordname.dylib"),
         )
+
+
+def test_check_manylinux_symbols_enforces_limits() -> None:
+    with pytest.raises(RuntimeError, match="GLIBC_2.18"):
+        make_checks.check_manylinux_symbols([" U function@GLIBC_2.18"], "manylinux2014")
+
+    make_checks.check_manylinux_symbols(
+        [
+            " U function@GLIBC_2.28",
+            " U function@GLIBCXX_3.4.32",
+        ],
+        "manylinux_2_28",
+    )
+
+
+def test_check_manylinux_symbols_rejects_unknown_policy() -> None:
+    with pytest.raises(ValueError, match="Unsupported manylinux policy"):
+        make_checks.check_manylinux_symbols([], "unknown")
 
 
 def test_check_macos_rejects_new_deployment_target(
@@ -115,7 +141,7 @@ def test_check_macos_rejects_new_deployment_target(
         lambda *args, **kwargs: "      minos 12.0\n",
     )
     with pytest.raises(RuntimeError, match="macOS 12.0"):
-        make_checks._check_macos(Path("driver.dylib"))
+        make_checks._check_macos_deployment_target(Path("driver.dylib"))
 
 
 def test_check_macos_accepts_supported_deployment_target(
@@ -126,4 +152,4 @@ def test_check_macos_accepts_supported_deployment_target(
         "check_output",
         lambda *args, **kwargs: "      minos 11.0\n",
     )
-    make_checks._check_macos(Path("driver.dylib"))
+    make_checks._check_macos_deployment_target(Path("driver.dylib"))

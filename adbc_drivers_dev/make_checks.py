@@ -33,6 +33,14 @@ def _read_linux_symbols(binary: Path) -> list[str]:
     )
 
 
+def _read_macos_symbols(binary: Path) -> list[str]:
+    return (
+        subprocess.check_output(["nm", "-gU", str(binary)], text=True)
+        .strip()
+        .splitlines()
+    )
+
+
 def _read_linux_symbols_in_docker(
     make_env: MakeEnv, make_config: MakeConfig, binary: Path
 ) -> list[str]:
@@ -67,18 +75,28 @@ def _read_linux_symbols_in_docker(
     )
 
 
-def check_linux_symbols(
-    symbols: list[str], binary: Path, manylinux: str, driver: str
-) -> None:
-    bad_symbols = []
-    exported_symbols = set()
+def _extract_linux_symbols(symbols: list[str]) -> list[str]:
+    exported_symbols = []
     for symbol in symbols:
         if " T " not in symbol:
             continue
         _, _, name = symbol.partition(" T ")
-        exported_symbols.add(name)
-        if not name.startswith("Adbc"):
-            bad_symbols.append(name)
+        exported_symbols.append(name)
+    return exported_symbols
+
+
+def _extract_macos_symbols(symbols: list[str]) -> list[str]:
+    exported_symbols = []
+    for symbol in symbols:
+        if " T " not in symbol:
+            continue
+        _, _, name = symbol.partition(" T ")
+        exported_symbols.append(name.removeprefix("_"))
+    return exported_symbols
+
+
+def check_symbols(symbols: list[str], binary: Path, driver: str) -> None:
+    bad_symbols = [symbol for symbol in symbols if not symbol.startswith("Adbc")]
     if bad_symbols:
         raise RuntimeError(
             f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
@@ -87,13 +105,15 @@ def check_linux_symbols(
     driver_init = f"AdbcDriver{driver.lower().capitalize()}Init"
     missing_symbols = set()
     for required_symbol in (driver_init, "AdbcDriverInit"):
-        if required_symbol not in exported_symbols:
+        if required_symbol not in symbols:
             missing_symbols.add(required_symbol)
     if missing_symbols:
         raise RuntimeError(
             f"{', '.join(missing_symbols)} should be exported from {binary}"
         )
 
+
+def check_manylinux_symbols(symbols: list[str], manylinux: str) -> None:
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
         "manylinux_2_28": ("2.28", "3.4.32"),
@@ -127,10 +147,11 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
         raise RuntimeError(
             "Cannot run Linux compatibility checks on non-Linux host without Docker"
         )
-    check_linux_symbols(symbols, binary, make_config.manylinux, make_config.driver)
+    check_symbols(_extract_linux_symbols(symbols), binary, make_config.driver)
+    check_manylinux_symbols(symbols, make_config.manylinux)
 
 
-def _check_macos(binary: Path) -> None:
+def _check_macos_deployment_target(binary: Path) -> None:
     output = subprocess.check_output(["otool", "-l", str(binary)], text=True)
     minos = None
     for line in output.splitlines():
@@ -150,9 +171,15 @@ def _check_macos(binary: Path) -> None:
         )
 
 
+def _check_macos(make_config: MakeConfig, binary: Path) -> None:
+    symbols = _read_macos_symbols(binary)
+    check_symbols(_extract_macos_symbols(symbols), binary, make_config.driver)
+    _check_macos_deployment_target(binary)
+
+
 def check(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> None:
     if make_env.target_platform == "linux":
         _check_linux(make_env, make_config, binary)
     elif make_env.target_platform == "macos":
-        _check_macos(binary)
+        _check_macos(make_config, binary)
     # TODO: implement Windows checks
