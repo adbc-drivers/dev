@@ -43,6 +43,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          cache: false
+          go-version-file: tests/make/godummy/module/go.mod
+
       - uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f  # v0.10.0
         with:
           pixi-version: v0.72.0

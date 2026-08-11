@@ -14,4 +14,4 @@
 
 module github.com/adbc-drivers/dev/tests/godummy
 
-go 1.25
+go 1.26

@@ -400,7 +400,7 @@ class MakeConfig(BaseModel):
                 [
                     f"-ldflags={' '.join(ldflags)}",
                     "-o",
-                    str(Path("build") / output_name),
+                    (Path("build") / output_name).as_posix(),
                     "./pkg",
                 ]
             )
