@@ -385,7 +385,14 @@ class MakeConfig(BaseModel):
 
             pre_commands = []
             docker_container = None
-            if config.use_docker:
+            if config.target_platform == "macos":
+                ldflags.extend(
+                    [
+                        "-linkmode external",
+                        "-extldflags=-Wl,-exported_symbol,_Adbc*",
+                    ]
+                )
+            elif config.use_docker:
                 env_vars["GOWORK"] = "off"
                 pre_commands.append([*go, "mod", "vendor"])
                 ldflags.extend(
