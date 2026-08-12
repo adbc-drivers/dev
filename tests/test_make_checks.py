@@ -63,7 +63,7 @@ def test_extract_linux_symbols() -> None:
             "         U external_symbol",
             "000000 B _cgo_runtime",
         ]
-    ) == ["AdbcDriverDriverInit"]
+    ) == ["AdbcDriverInit", "AdbcDriverDriverInit"]
 
 
 def test_extract_macos_symbols() -> None:
