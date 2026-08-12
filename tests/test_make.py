@@ -521,11 +521,11 @@ def test_go_actual_release_ci(go_driver_root: tuple[Path, Path]) -> None:
     if platform.system() == "Linux":
         assert "* go -C module mod vendor" in result
         assert "* docker exec" in result
-        assert "-linkmode external" in result
     else:
         assert "* go -C module mod vendor" not in result
         assert "* docker" not in result
-        assert "-linkmode external" not in result
+    if platform.system() != "Windows":
+        assert "-linkmode external" in result
     assert (driver_root / "build" / f"{prefix}adbc_driver_godummy{suffix}").is_file()
     assert not (driver_root / "module" / "build" / "libadbc_driver_godummy.h").exists()
 
