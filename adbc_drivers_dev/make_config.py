@@ -350,7 +350,9 @@ class MakeConfig(BaseModel):
         alias="additional-volumes",
         description="Additional Docker volume mounts, in HOST:CONTAINER format",
     )
-    additional_runtime_dependencies: dict[typing.Literal["linux"], list[str]] = Field(
+    additional_runtime_dependencies: dict[
+        typing.Literal["linux", "macos"], list[str]
+    ] = Field(
         default_factory=dict,
         alias="additional-runtime-dependencies",
         description="Additional runtime dependencies allowed by platform",

@@ -36,6 +36,12 @@ _LINUX_LOADERS = {
     "amd64": "/lib64/ld-linux-x86-64.so.2",
     "arm64": "/lib/ld-linux-aarch64.so.1",
 }
+_MACOS_RUNTIME_DEPENDENCIES = {
+    "/usr/lib/libSystem.B.dylib",
+    "/usr/lib/libresolv.9.dylib",
+    "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+    "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+}
 
 
 def _read_linux_symbols(binary: Path) -> list[str]:
@@ -58,6 +64,10 @@ def _read_macos_symbols(binary: Path) -> list[str]:
         .strip()
         .splitlines()
     )
+
+
+def _read_macos_dependencies(binary: Path) -> list[str]:
+    return subprocess.check_output(["otool", "-L", str(binary)], text=True).splitlines()
 
 
 def _read_windows_symbols(binary: Path) -> list[str]:
@@ -141,20 +151,24 @@ def _extract_linux_dependencies(output: list[str]) -> set[str]:
     return dependencies
 
 
-def check_linux_runtime_dependencies(
-    output: list[str], binary: Path, architecture: str, additional: list[str]
+def check_runtime_dependencies(
+    dependencies: set[str], binary: Path, allowed: set[str]
 ) -> None:
-    dependencies = _extract_linux_dependencies(output)
-    allowed = _LINUX_RUNTIME_DEPENDENCIES | set(additional)
-    try:
-        allowed.add(_LINUX_LOADERS[architecture])
-    except KeyError as err:
-        raise ValueError(f"Unsupported Linux architecture: {architecture}") from err
-
-    unexpected = {name for name in dependencies if name not in allowed}
+    unexpected = dependencies - allowed
     if unexpected:
         details = ", ".join(sorted(unexpected))
         raise RuntimeError(f"{binary} has unexpected runtime dependencies: {details}")
+
+
+def _extract_macos_dependencies(output: list[str]) -> set[str]:
+    dependencies = set()
+    for raw_line in output[1:]:
+        line = raw_line.strip()
+        if not line:
+            continue
+        dependency, _, _ = line.partition(" (")
+        dependencies.add(dependency)
+    return dependencies
 
 
 def _extract_exported_linux_symbols(symbols: list[str]) -> list[str]:
@@ -264,11 +278,21 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
     check_required_symbols(exported_symbols, binary, make_config.driver)
     check_disallowed_symbols(exported_symbols, binary, make_config.driver)
     check_linux_libc_requirement(symbols, make_config.manylinux)
-    check_linux_runtime_dependencies(
-        dependencies,
+    try:
+        loader = _LINUX_LOADERS[make_env.target_architecture]
+    except KeyError as err:
+        raise ValueError(
+            f"Unsupported Linux architecture: {make_env.target_architecture}"
+        ) from err
+    allowed_dependencies = (
+        _LINUX_RUNTIME_DEPENDENCIES
+        | {loader}
+        | set(make_config.additional_runtime_dependencies.get("linux", []))
+    )
+    check_runtime_dependencies(
+        _extract_linux_dependencies(dependencies),
         binary,
-        make_env.target_architecture,
-        make_config.additional_runtime_dependencies.get("linux", []),
+        allowed_dependencies,
     )
 
 
@@ -294,10 +318,19 @@ def _check_macos_deployment_target(binary: Path) -> None:
 
 def _check_macos(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_macos_symbols(binary)
+    dependencies = _read_macos_dependencies(binary)
     exported_symbols = _extract_exported_macos_symbols(symbols)
     check_required_symbols(exported_symbols, binary, make_config.driver)
     check_disallowed_symbols(exported_symbols, binary, make_config.driver)
     _check_macos_deployment_target(binary)
+    allowed_dependencies = _MACOS_RUNTIME_DEPENDENCIES | set(
+        make_config.additional_runtime_dependencies.get("macos", [])
+    )
+    check_runtime_dependencies(
+        _extract_macos_dependencies(dependencies),
+        binary,
+        allowed_dependencies,
+    )
 
 
 def _check_windows(make_config: MakeConfig, binary: Path) -> None:

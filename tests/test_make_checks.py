@@ -100,7 +100,7 @@ def test_extract_linux_dependencies() -> None:
     }
 
 
-def test_check_linux_runtime_dependencies() -> None:
+def test_check_runtime_dependencies() -> None:
     output = [
         "linux-vdso.so.1 (0x00007fff)",
         "libgcc_s.so.1 => /lib64/libgcc_s.so.1 (0x00007fff)",
@@ -109,30 +109,32 @@ def test_check_linux_runtime_dependencies() -> None:
         "libc.so.6 => /lib64/libc.so.6 (0x00007fff)",
         "/lib64/ld-linux-x86-64.so.2 (0x00007fff)",
     ]
-    make_checks.check_linux_runtime_dependencies(output, Path("driver.so"), "amd64", [])
+    allowed = make_checks._LINUX_RUNTIME_DEPENDENCIES | {
+        make_checks._LINUX_LOADERS["amd64"]
+    }
+    make_checks.check_runtime_dependencies(
+        make_checks._extract_linux_dependencies(output), Path("driver.so"), allowed
+    )
 
     output.append("libfoobar.so => /opt/libfoobar.so (0x00007fff)")
-    make_checks.check_linux_runtime_dependencies(
-        output, Path("driver.so"), "amd64", ["libfoobar.so"]
-    )
-    make_checks.check_linux_runtime_dependencies(
-        ["/lib/ld-linux-aarch64.so.1 (0x00007fff)"],
+    make_checks.check_runtime_dependencies(
+        make_checks._extract_linux_dependencies(output),
         Path("driver.so"),
-        "arm64",
-        [],
+        allowed | {"libfoobar.so"},
     )
 
     with pytest.raises(RuntimeError, match="libfoobar.so"):
-        make_checks.check_linux_runtime_dependencies(
-            output, Path("driver.so"), "amd64", []
+        make_checks.check_runtime_dependencies(
+            make_checks._extract_linux_dependencies(output),
+            Path("driver.so"),
+            allowed,
         )
 
     with pytest.raises(RuntimeError, match="libmissing.so.1"):
-        make_checks.check_linux_runtime_dependencies(
-            ["libmissing.so.1 => not found"],
+        make_checks.check_runtime_dependencies(
+            {"libmissing.so.1"},
             Path("driver.so"),
-            "amd64",
-            [],
+            allowed,
         )
 
 
@@ -144,6 +146,59 @@ def test_extract_exported_macos_symbols() -> None:
     ]
     exported = make_checks._extract_exported_macos_symbols(symbols)
     assert exported == ["AdbcDriverMultiwordnameInit"]
+
+
+def test_extract_macos_dependencies() -> None:
+    dependencies = make_checks._extract_macos_dependencies(
+        [
+            "driver.dylib:",
+            "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)",
+            "\t@rpath/libfoobar.dylib (compatibility version 0.0.0, current version 1.0.0)",
+            "\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61123.0.0)",
+        ]
+    )
+    assert dependencies == {
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libfoobar.dylib",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+    }
+
+
+def test_check_macos_runtime_dependencies() -> None:
+    output = [
+        "driver.dylib:",
+        "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)",
+        "\t/usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)",
+        "\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 1953.1.0)",
+        "\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61123.0.0)",
+    ]
+    make_checks.check_runtime_dependencies(
+        make_checks._extract_macos_dependencies(output),
+        Path("driver.dylib"),
+        make_checks._MACOS_RUNTIME_DEPENDENCIES,
+    )
+
+    output.append(
+        "\t@rpath/libfoobar.dylib (compatibility version 0.0.0, current version 1.0.0)"
+    )
+    make_checks.check_runtime_dependencies(
+        make_checks._extract_macos_dependencies(output),
+        Path("driver.dylib"),
+        make_checks._MACOS_RUNTIME_DEPENDENCIES | {"@rpath/libfoobar.dylib"},
+    )
+    with pytest.raises(RuntimeError, match="@rpath/libfoobar.dylib"):
+        make_checks.check_runtime_dependencies(
+            make_checks._extract_macos_dependencies(output),
+            Path("driver.dylib"),
+            make_checks._MACOS_RUNTIME_DEPENDENCIES,
+        )
+
+    with pytest.raises(RuntimeError, match="/opt/lib/libSystem.B.dylib"):
+        make_checks.check_runtime_dependencies(
+            {"/opt/lib/libSystem.B.dylib"},
+            Path("driver.dylib"),
+            make_checks._MACOS_RUNTIME_DEPENDENCIES,
+        )
 
 
 def test_extract_windows_symbols() -> None:
