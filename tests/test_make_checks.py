@@ -152,6 +152,7 @@ def test_extract_macos_dependencies() -> None:
     dependencies = make_checks._extract_macos_dependencies(
         [
             "driver.dylib:",
+            "\tlibadbc_driver_godummy.dylib (compatibility version 0.0.0, current version 0.0.0)",
             "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)",
             "\t@rpath/libfoobar.dylib (compatibility version 0.0.0, current version 1.0.0)",
             "\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61123.0.0)",
@@ -163,11 +164,23 @@ def test_extract_macos_dependencies() -> None:
         "/System/Library/Frameworks/Security.framework/Versions/A/Security",
     }
 
+    dependencies = make_checks._extract_macos_dependencies(
+        [
+            "driver.dylib:",
+            "",
+            "\t/Users/runner/work/dev/dev/tests/make/rustdummy/target/release/deps/libadbc_dummy.dylib (compatibility version 0.0.0, current version 0.0.0)",
+            "\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)",
+        ]
+    )
+    assert dependencies == {"/usr/lib/libiconv.2.dylib"}
+
 
 def test_check_macos_runtime_dependencies() -> None:
     output = [
         "driver.dylib:",
+        "\tlibadbc_driver_godummy.dylib (compatibility version 0.0.0, current version 0.0.0)",
         "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)",
+        "\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)",
         "\t/usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)",
         "\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 1953.1.0)",
         "\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61123.0.0)",

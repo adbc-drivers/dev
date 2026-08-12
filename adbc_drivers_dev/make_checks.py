@@ -38,6 +38,7 @@ _LINUX_LOADERS = {
 }
 _MACOS_RUNTIME_DEPENDENCIES = {
     "/usr/lib/libSystem.B.dylib",
+    "/usr/lib/libiconv.2.dylib",
     "/usr/lib/libresolv.9.dylib",
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
     "/System/Library/Frameworks/Security.framework/Versions/A/Security",
@@ -162,9 +163,13 @@ def check_runtime_dependencies(
 
 def _extract_macos_dependencies(output: list[str]) -> set[str]:
     dependencies = set()
+    skipped_install_name = False
     for raw_line in output[1:]:
         line = raw_line.strip()
         if not line:
+            continue
+        if not skipped_install_name:
+            skipped_install_name = True
             continue
         dependency, _, _ = line.partition(" (")
         dependencies.add(dependency)
