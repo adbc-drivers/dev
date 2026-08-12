@@ -19,6 +19,7 @@ A build script for ADBC drivers using doit.
 See: https://pydoit.org/
 """
 
+import functools
 import os
 import platform
 import shlex
@@ -311,6 +312,7 @@ def should_use_docker() -> bool:
     return to_bool(get_var("CI", False)) and platform.system() == "Linux"
 
 
+@functools.cache
 def _load_build_context() -> tuple[
     make_config.MakeEnv, make_config.MakeConfig, make_config.MakePlan
 ]:
