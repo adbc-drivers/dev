@@ -57,6 +57,17 @@ jobs:
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
         if: runner.os == 'Linux'
 
+      - name: Add dumpbin to PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) {
+            throw "Could not find dumpbin.exe using vswhere"
+          }
+          Split-Path $dumpbin -Parent | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Test
         run: |
           pixi run --locked test
