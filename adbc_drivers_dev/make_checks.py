@@ -83,7 +83,7 @@ def _read_linux_symbols_in_docker(
     )
 
 
-def _extract_linux_symbols(symbols: list[str]) -> list[str]:
+def _extract_exported_linux_symbols(symbols: list[str]) -> list[str]:
     exported_symbols = []
     for symbol in symbols:
         if " T " not in symbol:
@@ -93,7 +93,7 @@ def _extract_linux_symbols(symbols: list[str]) -> list[str]:
     return exported_symbols
 
 
-def _extract_macos_symbols(symbols: list[str]) -> list[str]:
+def _extract_exported_macos_symbols(symbols: list[str]) -> list[str]:
     exported_symbols = []
     for symbol in symbols:
         if " T " not in symbol:
@@ -103,7 +103,7 @@ def _extract_macos_symbols(symbols: list[str]) -> list[str]:
     return exported_symbols
 
 
-def _extract_windows_symbols(symbols: list[str]) -> list[str]:
+def _extract_exported_windows_symbols(symbols: list[str]) -> list[str]:
     exported_symbols = []
     name_column = None
     for symbol in symbols:
@@ -121,17 +121,14 @@ def _extract_windows_symbols(symbols: list[str]) -> list[str]:
     return exported_symbols
 
 
-def check_symbols(symbols: list[str], binary: Path, driver: str) -> None:
-    bad_symbols = [symbol for symbol in symbols if not symbol.startswith("Adbc")]
-    if bad_symbols:
-        raise RuntimeError(
-            f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
-        )
-
+def check_required_symbols(
+    exported_symbols: list[str], binary: Path, driver: str
+) -> None:
+    """Check that required symbols are present in exported symbols."""
     driver_init = f"AdbcDriver{driver.lower().capitalize()}Init"
     missing_symbols = set()
     for required_symbol in (driver_init, "AdbcDriverInit"):
-        if required_symbol not in symbols:
+        if required_symbol not in exported_symbols:
             missing_symbols.add(required_symbol)
     if missing_symbols:
         raise RuntimeError(
@@ -139,7 +136,21 @@ def check_symbols(symbols: list[str], binary: Path, driver: str) -> None:
         )
 
 
-def check_manylinux_symbols(symbols: list[str], manylinux: str) -> None:
+def check_disallowed_symbols(
+    exported_symbols: list[str], binary: Path, driver: str
+) -> None:
+    """Check that disallowed symbols are not exported."""
+    bad_symbols = [
+        symbol for symbol in exported_symbols if not symbol.startswith("Adbc")
+    ]
+    if bad_symbols:
+        raise RuntimeError(
+            f"{', '.join(bad_symbols[:3])}... ({len(bad_symbols)} symbols total) should not be exported from {binary}"
+        )
+
+
+def check_linux_libc_requirement(symbols: list[str], manylinux: str) -> None:
+    """Check that required libc symbols are compatible with the manylinux policy."""
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
         "manylinux_2_28": ("2.28", "3.4.32"),
@@ -173,8 +184,10 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
         raise RuntimeError(
             "Cannot run Linux compatibility checks on non-Linux host without Docker"
         )
-    check_symbols(_extract_linux_symbols(symbols), binary, make_config.driver)
-    check_manylinux_symbols(symbols, make_config.manylinux)
+    exported_symbols = _extract_exported_linux_symbols(symbols)
+    check_required_symbols(exported_symbols, binary, make_config.driver)
+    check_disallowed_symbols(exported_symbols, binary, make_config.driver)
+    check_linux_libc_requirement(symbols, make_config.manylinux)
 
 
 def _check_macos_deployment_target(binary: Path) -> None:
@@ -199,13 +212,18 @@ def _check_macos_deployment_target(binary: Path) -> None:
 
 def _check_macos(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_macos_symbols(binary)
-    check_symbols(_extract_macos_symbols(symbols), binary, make_config.driver)
+    exported_symbols = _extract_exported_macos_symbols(symbols)
+    check_required_symbols(exported_symbols, binary, make_config.driver)
+    check_disallowed_symbols(exported_symbols, binary, make_config.driver)
     _check_macos_deployment_target(binary)
 
 
 def _check_windows(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_windows_symbols(binary)
-    check_symbols(_extract_windows_symbols(symbols), binary, make_config.driver)
+    exported_symbols = _extract_exported_windows_symbols(symbols)
+    check_required_symbols(exported_symbols, binary, make_config.driver)
+    # Do not check disallowed symbols on Windows - we don't have a good way of
+    # hiding symbols as we do on Linux/macOS
 
 
 def check(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> None:

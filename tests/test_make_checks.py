@@ -19,88 +19,110 @@ import pytest
 from adbc_drivers_dev import make_checks
 
 
-def test_check_symbols_accepts_adbc_exports() -> None:
-    make_checks.check_symbols(
+def test_check_required_symbols() -> None:
+    make_checks.check_required_symbols(
         [
             "AdbcDatabaseNew",
             "AdbcConnectionInit",
             "AdbcDriverMultiwordnameInit",
             "AdbcDriverInit",
+            "bad_symbol",
         ],
         Path("driver.so"),
         "multiwordname",
     )
 
-
-def test_check_symbols_rejects_non_adbc_exports() -> None:
-    with pytest.raises(RuntimeError, match="bad_symbol"):
-        make_checks.check_symbols(
+    with pytest.raises(RuntimeError, match="AdbcDriverInit"):
+        make_checks.check_required_symbols(
             [
                 "AdbcDatabaseNew",
-                "AdbcDriverDriverInit",
-                "AdbcDriverInit",
+                "AdbcConnectionInit",
+                "AdbcDriverMultiwordnameInit",
                 "bad_symbol",
             ],
+            Path("driver.so"),
+            "multiwordname",
+        )
+
+    with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
+        make_checks.check_required_symbols(
+            ["AdbcDatabaseNew", "AdbcConnectionInit", "AdbcDriverInit", "bad_symbol"],
+            Path("driver.so"),
+            "multiwordname",
+        )
+
+
+def test_check_disallowed_symbols() -> None:
+    make_checks.check_disallowed_symbols(
+        [],
+        Path("driver.so"),
+        "driver",
+    )
+    make_checks.check_disallowed_symbols(
+        ["AdbcFooBar"],
+        Path("driver.so"),
+        "driver",
+    )
+
+    with pytest.raises(RuntimeError, match="bad_symbol"):
+        make_checks.check_disallowed_symbols(
+            ["AdbcFooBar", "bad_symbol"],
             Path("driver.so"),
             "driver",
         )
 
 
-def test_check_symbols_requires_driver_init() -> None:
-    with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
-        make_checks.check_symbols(
-            ["AdbcDriverMultiWordNameInit"],
-            Path("libadbc_driver_multiwordname.so"),
-            "multiwordname",
-        )
+def test_extract_exported_linux_symbols() -> None:
+    symbols = [
+        "000000 T AdbcDriverInit",
+        "000000 T AdbcDriverDriverInit",
+        "         U external_symbol",
+        "000000 B _cgo_runtime",
+    ]
+    exported_symbols = make_checks._extract_exported_linux_symbols(symbols)
+    assert exported_symbols == ["AdbcDriverInit", "AdbcDriverDriverInit"]
 
 
-def test_extract_linux_symbols() -> None:
-    assert make_checks._extract_linux_symbols(
-        [
-            "000000 T AdbcDriverInit",
-            "000000 T AdbcDriverDriverInit",
-            "         U external_symbol",
-            "000000 B _cgo_runtime",
-        ]
-    ) == ["AdbcDriverInit", "AdbcDriverDriverInit"]
-
-
-def test_extract_macos_symbols() -> None:
-    assert make_checks._extract_macos_symbols(
-        [
-            "000000 T _AdbcDriverMultiwordnameInit",
-            "000000 U _external_symbol",
-            "000000 D __cgo_runtime",
-        ]
-    ) == ["AdbcDriverMultiwordnameInit"]
+def test_extract_exported_macos_symbols() -> None:
+    symbols = [
+        "000000 T _AdbcDriverMultiwordnameInit",
+        "000000 U _external_symbol",
+        "000000 D __cgo_runtime",
+    ]
+    exported = make_checks._extract_exported_macos_symbols(symbols)
+    assert exported == ["AdbcDriverMultiwordnameInit"]
 
 
 def test_extract_windows_symbols() -> None:
-    assert make_checks._extract_windows_symbols(
+    symbols = [
+        "Dump of file driver.dll",
+        "",
+        "File Type: DLL",
+        "",
+        "    ordinal hint RVA      name",
+        "",
+        "          1    0 00001000 AdbcDriverInit",
+        "          2    1 00001010 AdbcDriverMultiwordnameInit",
+        "          3    2 00001020 bad_symbol = internal_symbol",
+        "",
+        "  Summary",
+        "        1000 .data",
+        "        6000 .text",
+    ]
+    exported = make_checks._extract_exported_windows_symbols(symbols)
+    assert exported == ["AdbcDriverInit", "AdbcDriverMultiwordnameInit", "bad_symbol"]
+
+
+def test_check_linux_libc_requirement() -> None:
+    make_checks.check_linux_libc_requirement(
         [
-            "Dump of file driver.dll",
-            "",
-            "File Type: DLL",
-            "",
-            "    ordinal hint RVA      name",
-            "",
-            "          1    0 00001000 AdbcDriverInit",
-            "          2    1 00001010 AdbcDriverMultiwordnameInit",
-            "          3    2 00001020 bad_symbol = internal_symbol",
-            "",
-            "  Summary",
-            "        1000 .data",
-            "        6000 .text",
-        ]
-    ) == ["AdbcDriverInit", "AdbcDriverMultiwordnameInit", "bad_symbol"]
+            " U function@GLIBC_2.17",
+            " U function@GLIBCXX_3.4.19",
+        ],
+        "manylinux2014",
+    )
 
-
-def test_check_manylinux_symbols_enforces_limits() -> None:
-    with pytest.raises(RuntimeError, match="GLIBC_2.18"):
-        make_checks.check_manylinux_symbols([" U function@GLIBC_2.18"], "manylinux2014")
-
-    make_checks.check_manylinux_symbols(
+    make_checks.check_linux_libc_requirement(
         [
             " U function@GLIBC_2.28",
             " U function@GLIBCXX_3.4.32",
@@ -108,10 +130,28 @@ def test_check_manylinux_symbols_enforces_limits() -> None:
         "manylinux_2_28",
     )
 
+    with pytest.raises(RuntimeError, match="GLIBC_2.18"):
+        make_checks.check_linux_libc_requirement(
+            [" U function@GLIBC_2.18"], "manylinux2014"
+        )
 
-def test_check_manylinux_symbols_rejects_unknown_policy() -> None:
+    with pytest.raises(RuntimeError, match="GLIBCXX_3.4.20"):
+        make_checks.check_linux_libc_requirement(
+            [" U function@GLIBCXX_3.4.20"], "manylinux2014"
+        )
+
+    with pytest.raises(RuntimeError, match="GLIBC_2.29"):
+        make_checks.check_linux_libc_requirement(
+            [" U function@GLIBC_2.29"], "manylinux_2_28"
+        )
+
+    with pytest.raises(RuntimeError, match="GLIBCXX_3.4.33"):
+        make_checks.check_linux_libc_requirement(
+            [" U function@GLIBCXX_3.4.33"], "manylinux_2_28"
+        )
+
     with pytest.raises(ValueError, match="Unsupported manylinux policy"):
-        make_checks.check_manylinux_symbols([], "unknown")
+        make_checks.check_linux_libc_requirement([], "unknown")
 
 
 def test_check_macos_rejects_new_deployment_target(
