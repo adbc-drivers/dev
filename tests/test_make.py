@@ -513,7 +513,7 @@ def test_go_actual_release_ci(go_driver_root: tuple[Path, Path]) -> None:
     _, driver_root = go_driver_root
     prefix, suffix = shared_library_affix()
     result = subprocess.check_output(
-        ["adbc-make", "-a", "CI=true"],
+        ["adbc-make", "-a", "check", "CI=true"],
         cwd=driver_root,
         text=True,
         stderr=subprocess.STDOUT,
@@ -572,7 +572,7 @@ def test_rust_actual_release(rust_driver_root: tuple[Path, Path]) -> None:
 def test_rust_actual_release_ci(rust_driver_root: tuple[Path, Path]) -> None:
     prefix, suffix = shared_library_affix()
     result = subprocess.check_output(
-        ["adbc-make", "-a", "CI=true"],
+        ["adbc-make", "-a", "check", "CI=true"],
         cwd=rust_driver_root[1],
         text=True,
         stderr=subprocess.STDOUT,
