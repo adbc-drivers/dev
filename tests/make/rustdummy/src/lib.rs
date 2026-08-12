@@ -923,4 +923,4 @@ impl Drop for DummyStatement {
     }
 }
 
-adbc_ffi::export_driver!(AdbcDummyInit, DummyDriver);
+adbc_ffi::export_driver!(AdbcDriverRustdummyInit, DummyDriver);

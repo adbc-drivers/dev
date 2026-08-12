@@ -19,7 +19,10 @@ package main
 */
 import "C"
 
-//export AdbcDummyInit
-func AdbcDummyInit() {}
+//export AdbcDriverGodummyInit
+func AdbcDriverGodummyInit() {}
+
+//export AdbcDriverInit
+func AdbcDriverInit() {}
 
 func main() {}

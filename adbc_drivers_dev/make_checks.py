@@ -41,6 +41,14 @@ def _read_macos_symbols(binary: Path) -> list[str]:
     )
 
 
+def _read_windows_symbols(binary: Path) -> list[str]:
+    return (
+        subprocess.check_output(["dumpbin", "/exports", str(binary)], text=True)
+        .strip()
+        .splitlines()
+    )
+
+
 def _read_linux_symbols_in_docker(
     make_env: MakeEnv, make_config: MakeConfig, binary: Path
 ) -> list[str]:
@@ -92,6 +100,24 @@ def _extract_macos_symbols(symbols: list[str]) -> list[str]:
             continue
         _, _, name = symbol.partition(" T ")
         exported_symbols.append(name.removeprefix("_"))
+    return exported_symbols
+
+
+def _extract_windows_symbols(symbols: list[str]) -> list[str]:
+    exported_symbols = []
+    name_column = None
+    for symbol in symbols:
+        if symbol.strip().split() == ["ordinal", "hint", "RVA", "name"]:
+            name_column = symbol.index("name")
+            continue
+        if name_column is None:
+            continue
+        if symbol.strip() == "Summary":
+            break
+
+        name = symbol[name_column:].strip().partition(" ")[0]
+        if name:
+            exported_symbols.append(name)
     return exported_symbols
 
 
@@ -177,9 +203,17 @@ def _check_macos(make_config: MakeConfig, binary: Path) -> None:
     _check_macos_deployment_target(binary)
 
 
+def _check_windows(make_config: MakeConfig, binary: Path) -> None:
+    symbols = _read_windows_symbols(binary)
+    check_symbols(_extract_windows_symbols(symbols), binary, make_config.driver)
+
+
 def check(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> None:
     if make_env.target_platform == "linux":
         _check_linux(make_env, make_config, binary)
     elif make_env.target_platform == "macos":
         _check_macos(make_config, binary)
-    # TODO: implement Windows checks
+    elif make_env.target_platform == "windows":
+        _check_windows(make_config, binary)
+    else:
+        raise ValueError(f"Unknown target platform: {make_env.target_platform}")

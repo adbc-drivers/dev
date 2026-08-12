@@ -76,6 +76,26 @@ def test_extract_macos_symbols() -> None:
     ) == ["AdbcDriverMultiwordnameInit"]
 
 
+def test_extract_windows_symbols() -> None:
+    assert make_checks._extract_windows_symbols(
+        [
+            "Dump of file driver.dll",
+            "",
+            "File Type: DLL",
+            "",
+            "    ordinal hint RVA      name",
+            "",
+            "          1    0 00001000 AdbcDriverInit",
+            "          2    1 00001010 AdbcDriverMultiwordnameInit",
+            "          3    2 00001020 bad_symbol = internal_symbol",
+            "",
+            "  Summary",
+            "        1000 .data",
+            "        6000 .text",
+        ]
+    ) == ["AdbcDriverInit", "AdbcDriverMultiwordnameInit", "bad_symbol"]
+
+
 def test_check_manylinux_symbols_enforces_limits() -> None:
     with pytest.raises(RuntimeError, match="GLIBC_2.18"):
         make_checks.check_manylinux_symbols([" U function@GLIBC_2.18"], "manylinux2014")
