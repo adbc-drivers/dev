@@ -83,6 +83,59 @@ def test_extract_exported_linux_symbols() -> None:
     assert exported_symbols == ["AdbcDriverInit", "AdbcDriverDriverInit"]
 
 
+def test_extract_linux_dependencies() -> None:
+    dependencies = make_checks._extract_linux_dependencies(
+        [
+            "\tlinux-vdso.so.1 (0x00007fff)",
+            "\tlibm.so.6 => /lib64/libm.so.6 (0x00007fff)",
+            "\tlibmissing.so.1 => not found",
+            "\t/lib64/ld-linux-x86-64.so.2 (0x00007fff)",
+        ]
+    )
+    assert dependencies == {
+        "linux-vdso.so.1",
+        "libm.so.6",
+        "libmissing.so.1",
+        "/lib64/ld-linux-x86-64.so.2",
+    }
+
+
+def test_check_linux_runtime_dependencies() -> None:
+    output = [
+        "linux-vdso.so.1 (0x00007fff)",
+        "libgcc_s.so.1 => /lib64/libgcc_s.so.1 (0x00007fff)",
+        "libm.so.6 => /lib64/libm.so.6 (0x00007fff)",
+        "libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fff)",
+        "libc.so.6 => /lib64/libc.so.6 (0x00007fff)",
+        "/lib64/ld-linux-x86-64.so.2 (0x00007fff)",
+    ]
+    make_checks.check_linux_runtime_dependencies(output, Path("driver.so"), "amd64", [])
+
+    output.append("libfoobar.so => /opt/libfoobar.so (0x00007fff)")
+    make_checks.check_linux_runtime_dependencies(
+        output, Path("driver.so"), "amd64", ["libfoobar.so"]
+    )
+    make_checks.check_linux_runtime_dependencies(
+        ["/lib/ld-linux-aarch64.so.1 (0x00007fff)"],
+        Path("driver.so"),
+        "arm64",
+        [],
+    )
+
+    with pytest.raises(RuntimeError, match="libfoobar.so"):
+        make_checks.check_linux_runtime_dependencies(
+            output, Path("driver.so"), "amd64", []
+        )
+
+    with pytest.raises(RuntimeError, match="libmissing.so.1"):
+        make_checks.check_linux_runtime_dependencies(
+            ["libmissing.so.1 => not found"],
+            Path("driver.so"),
+            "amd64",
+            [],
+        )
+
+
 def test_extract_exported_macos_symbols() -> None:
     symbols = [
         "000000 T _AdbcDriverMultiwordnameInit",

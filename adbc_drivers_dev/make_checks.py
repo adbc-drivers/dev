@@ -22,6 +22,18 @@ import packaging.version
 
 from .make_config import MakeConfig, MakeEnv
 
+_LINUX_RUNTIME_DEPENDENCIES = {
+    "linux-vdso.so.1",
+    "libgcc_s.so.1",
+    "libm.so.6",
+    "libpthread.so.0",
+    "libc.so.6",
+}
+_LINUX_LOADERS = {
+    "amd64": "/lib64/ld-linux-x86-64.so.2",
+    "arm64": "/lib/ld-linux-aarch64.so.1",
+}
+
 
 def _read_linux_symbols(binary: Path) -> list[str]:
     return (
@@ -31,6 +43,10 @@ def _read_linux_symbols(binary: Path) -> list[str]:
         .strip()
         .splitlines()
     )
+
+
+def _read_linux_dependencies(binary: Path) -> list[str]:
+    return subprocess.check_output(["ldd", str(binary)], text=True).splitlines()
 
 
 def _read_macos_symbols(binary: Path) -> list[str]:
@@ -81,6 +97,61 @@ def _read_linux_symbols_in_docker(
         .strip()
         .splitlines()
     )
+
+
+def _read_linux_dependencies_in_docker(
+    make_env: MakeEnv, make_config: MakeConfig, binary: Path
+) -> list[str]:
+    rel_binary = binary.resolve().relative_to(make_env.repo_root.resolve())
+    env = {
+        **os.environ,
+        "SOURCE_ROOT": str(make_env.repo_root),
+        "DOCKER_DEFAULT_PLATFORM": (
+            f"{make_env.target_platform}/{make_env.target_architecture}"
+        ),
+        "MANYLINUX": make_config.manylinux,
+    }
+    return subprocess.check_output(
+        [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "manylinux",
+            "ldd",
+            f"/source/{rel_binary.as_posix()}",
+        ],
+        cwd=Path(__file__).parent,
+        env=env,
+        text=True,
+    ).splitlines()
+
+
+def _extract_linux_dependencies(output: list[str]) -> set[str]:
+    dependencies = set()
+    for raw_line in output:
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        dependencies.add(parts[0])
+    return dependencies
+
+
+def check_linux_runtime_dependencies(
+    output: list[str], binary: Path, architecture: str, additional: list[str]
+) -> None:
+    dependencies = _extract_linux_dependencies(output)
+    allowed = _LINUX_RUNTIME_DEPENDENCIES | set(additional)
+    try:
+        allowed.add(_LINUX_LOADERS[architecture])
+    except KeyError as err:
+        raise ValueError(f"Unsupported Linux architecture: {architecture}") from err
+
+    unexpected = {name for name in dependencies if name not in allowed}
+    if unexpected:
+        details = ", ".join(sorted(unexpected))
+        raise RuntimeError(f"{binary} has unexpected runtime dependencies: {details}")
 
 
 def _extract_exported_linux_symbols(symbols: list[str]) -> list[str]:
@@ -178,8 +249,10 @@ def check_linux_libc_requirement(symbols: list[str], manylinux: str) -> None:
 def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> None:
     if make_env.host_platform == "linux":
         symbols = _read_linux_symbols(binary)
+        dependencies = _read_linux_dependencies(binary)
     elif make_env.use_docker:
         symbols = _read_linux_symbols_in_docker(make_env, make_config, binary)
+        dependencies = _read_linux_dependencies_in_docker(make_env, make_config, binary)
     else:
         raise RuntimeError(
             "Cannot run Linux compatibility checks on non-Linux host without Docker"
@@ -188,6 +261,12 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
     check_required_symbols(exported_symbols, binary, make_config.driver)
     check_disallowed_symbols(exported_symbols, binary, make_config.driver)
     check_linux_libc_requirement(symbols, make_config.manylinux)
+    check_linux_runtime_dependencies(
+        dependencies,
+        binary,
+        make_env.target_architecture,
+        make_config.additional_runtime_dependencies.get("linux", []),
+    )
 
 
 def _check_macos_deployment_target(binary: Path) -> None:
