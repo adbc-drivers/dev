@@ -43,6 +43,18 @@ _MACOS_RUNTIME_DEPENDENCIES = {
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
     "/System/Library/Frameworks/Security.framework/Versions/A/Security",
 }
+_WINDOWS_RUNTIME_DEPENDENCIES = {
+    "API-MS-WIN-CRT-HEAP-L1-1-0.DLL",
+    "API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL",
+    "API-MS-WIN-CRT-STRING-L1-1-0.DLL",
+    "KERNEL32.DLL",
+    "KERNELBASE.DLL",
+    "MSVCP140.DLL",
+    "NTDLL.DLL",
+    "UCRTBASE.DLL",
+    "VCRUNTIME140.DLL",
+    "VCRUNTIME140_1.DLL",
+}
 
 
 def _read_linux_symbols(binary: Path) -> list[str]:
@@ -74,6 +86,14 @@ def _read_macos_dependencies(binary: Path) -> list[str]:
 def _read_windows_symbols(binary: Path) -> list[str]:
     return (
         subprocess.check_output(["dumpbin", "/exports", str(binary)], text=True)
+        .strip()
+        .splitlines()
+    )
+
+
+def _read_windows_dependencies(binary: Path) -> list[str]:
+    return (
+        subprocess.check_output(["dumpbin", "/dependents", str(binary)], text=True)
         .strip()
         .splitlines()
     )
@@ -173,6 +193,25 @@ def _extract_macos_dependencies(output: list[str]) -> set[str]:
             continue
         dependency, _, _ = line.partition(" (")
         dependencies.add(dependency)
+    return dependencies
+
+
+def _extract_windows_dependencies(output: list[str]) -> set[str]:
+    dependencies = set()
+    in_dependencies = False
+    for raw_line in output:
+        line = raw_line.strip()
+        if line in {
+            "Image has the following dependencies:",
+            "Image has the following delay load dependencies:",
+        }:
+            in_dependencies = True
+            continue
+        if line == "Summary":
+            in_dependencies = False
+            continue
+        if in_dependencies and line.upper().endswith(".DLL"):
+            dependencies.add(line.upper())
     return dependencies
 
 
@@ -340,8 +379,18 @@ def _check_macos(make_config: MakeConfig, binary: Path) -> None:
 
 def _check_windows(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_windows_symbols(binary)
+    dependencies = _read_windows_dependencies(binary)
     exported_symbols = _extract_exported_windows_symbols(symbols)
     check_required_symbols(exported_symbols, binary, make_config.driver)
+    allowed_dependencies = _WINDOWS_RUNTIME_DEPENDENCIES | {
+        dependency.upper()
+        for dependency in make_config.additional_runtime_dependencies.get("windows", [])
+    }
+    check_runtime_dependencies(
+        _extract_windows_dependencies(dependencies),
+        binary,
+        allowed_dependencies,
+    )
     # Do not check disallowed symbols on Windows - we don't have a good way of
     # hiding symbols as we do on Linux/macOS
 

@@ -234,6 +234,47 @@ def test_extract_windows_symbols() -> None:
     assert exported == ["AdbcDriverInit", "AdbcDriverMultiwordnameInit", "bad_symbol"]
 
 
+def test_extract_windows_dependencies() -> None:
+    dependencies = make_checks._extract_windows_dependencies(
+        [
+            "Microsoft (R) COFF/PE Dumper Version 14.44.35213.0",
+            "",
+            "Dump of file driver.dll",
+            "",
+            "File Type: DLL",
+            "",
+            "  Image has the following dependencies:",
+            "",
+            "    KERNEL32.dll",
+            "    VCRUNTIME140.dll",
+            "",
+            "  Image has the following delay load dependencies:",
+            "",
+            "    foobar.dll",
+            "",
+            "  Summary",
+            "",
+            "        1000 .data",
+        ]
+    )
+    assert dependencies == {"KERNEL32.DLL", "VCRUNTIME140.DLL", "FOOBAR.DLL"}
+
+
+def test_check_windows_runtime_dependencies() -> None:
+    make_checks.check_runtime_dependencies(
+        make_checks._WINDOWS_RUNTIME_DEPENDENCIES,
+        Path("driver.dll"),
+        make_checks._WINDOWS_RUNTIME_DEPENDENCIES,
+    )
+
+    with pytest.raises(RuntimeError, match="FOOBAR.DLL"):
+        make_checks.check_runtime_dependencies(
+            {"KERNEL32.DLL", "FOOBAR.DLL"},
+            Path("driver.dll"),
+            make_checks._WINDOWS_RUNTIME_DEPENDENCIES,
+        )
+
+
 def test_check_linux_libc_requirement() -> None:
     make_checks.check_linux_libc_requirement(
         [
