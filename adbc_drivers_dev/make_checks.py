@@ -23,11 +23,12 @@ import packaging.version
 from .make_config import MakeConfig, MakeEnv
 
 _LINUX_RUNTIME_DEPENDENCIES = {
-    "linux-vdso.so.1",
+    "libc.so.6",
     "libgcc_s.so.1",
     "libm.so.6",
     "libpthread.so.0",
-    "libc.so.6",
+    "libresolv.so.2",
+    "linux-vdso.so.1",
 }
 _LINUX_LOADERS = {
     "amd64": "/lib64/ld-linux-x86-64.so.2",
