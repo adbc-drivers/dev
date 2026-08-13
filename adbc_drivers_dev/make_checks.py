@@ -29,6 +29,7 @@ _LINUX_RUNTIME_DEPENDENCIES = {
     "libm.so.6",
     "libpthread.so.0",
     "libresolv.so.2",
+    "librt.so.1",
     "linux-vdso.so.1",
 }
 _LINUX_LOADERS = {
