@@ -19,17 +19,25 @@ import pytest
 from adbc_drivers_dev import make_checks
 
 
-def test_check_required_symbols() -> None:
+@pytest.mark.parametrize(
+    ("driver", "driver_init"),
+    [
+        ("mysql", "AdbcDriverMysqlInit"),
+        ("bigquery", "AdbcDriverBigqueryInit"),
+        ("sap-hana", "AdbcDriverSapHanaInit"),
+    ],
+)
+def test_check_required_symbols(driver: str, driver_init: str) -> None:
     make_checks.check_required_symbols(
         [
             "AdbcDatabaseNew",
             "AdbcConnectionInit",
-            "AdbcDriverMultiwordnameInit",
+            driver_init,
             "AdbcDriverInit",
             "bad_symbol",
         ],
         Path("driver.so"),
-        "multiwordname",
+        driver,
     )
 
     with pytest.raises(RuntimeError, match="AdbcDriverInit"):
@@ -37,18 +45,18 @@ def test_check_required_symbols() -> None:
             [
                 "AdbcDatabaseNew",
                 "AdbcConnectionInit",
-                "AdbcDriverMultiwordnameInit",
+                driver_init,
                 "bad_symbol",
             ],
             Path("driver.so"),
-            "multiwordname",
+            driver,
         )
 
-    with pytest.raises(RuntimeError, match="AdbcDriverMultiwordnameInit"):
+    with pytest.raises(RuntimeError, match=driver_init):
         make_checks.check_required_symbols(
             ["AdbcDatabaseNew", "AdbcConnectionInit", "AdbcDriverInit", "bad_symbol"],
             Path("driver.so"),
-            "multiwordname",
+            driver,
         )
 
 

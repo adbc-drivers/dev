@@ -269,7 +269,8 @@ def check_required_symbols(
     exported_symbols: list[str], binary: Path, driver: str
 ) -> None:
     """Check that required symbols are present in exported symbols."""
-    driver_init = f"AdbcDriver{driver.lower().capitalize()}Init"
+    driver_name = "".join(part.capitalize() for part in driver.lower().split("-"))
+    driver_init = f"AdbcDriver{driver_name}Init"
     missing_symbols = set()
     for required_symbol in (driver_init, "AdbcDriverInit"):
         if required_symbol not in exported_symbols:
