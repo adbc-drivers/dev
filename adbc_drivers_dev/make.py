@@ -324,7 +324,6 @@ def _load_build_context() -> tuple[
     make_env = make_config.MakeEnv(
         ci=to_bool(get_var("CI", "false")),
         debug=to_bool(get_var("DEBUG", "False")),
-        release=strict,
         host_platform=PLATFORM,
         host_architecture=normalize_arch(platform.machine()),
         target_platform=target_platform(),

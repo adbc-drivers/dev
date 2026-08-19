@@ -49,9 +49,6 @@ class MakeEnv(BaseModel):
     debug: bool = Field(
         default=False, description="Whether to build the driver in debug mode"
     )
-    release: bool = Field(
-        default=False, description="Whether to build the release configuration"
-    )
     host_platform: typing.Literal["linux", "macos", "windows"]
     host_architecture: typing.Literal["amd64", "arm64"]
     target_platform: typing.Literal["linux", "macos", "windows"]
@@ -382,7 +379,7 @@ class MakeConfig(BaseModel):
             if config.debug:
                 tags.append("assert")
             tags.extend(self.lang.build_tags)
-            if config.release:
+            if not config.debug:
                 tags.extend(self.lang.release_build_tags)
 
             go = ["go"]
