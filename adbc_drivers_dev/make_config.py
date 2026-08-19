@@ -49,6 +49,9 @@ class MakeEnv(BaseModel):
     debug: bool = Field(
         default=False, description="Whether to build the driver in debug mode"
     )
+    release: bool = Field(
+        default=False, description="Whether to build the release configuration"
+    )
     host_platform: typing.Literal["linux", "macos", "windows"]
     host_architecture: typing.Literal["amd64", "arm64"]
     target_platform: typing.Literal["linux", "macos", "windows"]
@@ -287,6 +290,9 @@ class LangGo(BaseModel):
 
     lang: typing.Literal["go"]
     build_tags: list[str] = Field(default_factory=list, alias="build-tags")
+    release_build_tags: list[str] = Field(
+        default_factory=list, alias="release-build-tags"
+    )
     go_mod_path: str | None = Field(default=None, alias="go-mod-path")
 
 
@@ -376,6 +382,8 @@ class MakeConfig(BaseModel):
             if config.debug:
                 tags.append("assert")
             tags.extend(self.lang.build_tags)
+            if config.release:
+                tags.extend(self.lang.release_build_tags)
 
             go = ["go"]
             if self.lang.go_mod_path:
