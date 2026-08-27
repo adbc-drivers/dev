@@ -192,6 +192,7 @@ def test_check_macos_runtime_dependencies() -> None:
         "\t/usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)",
         "\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 1953.1.0)",
         "\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61123.0.0)",
+        "\t/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration (compatibility version 1.0.0, current version 1405.120.5)",
     ]
     make_checks.check_runtime_dependencies(
         make_checks._extract_macos_dependencies(output),

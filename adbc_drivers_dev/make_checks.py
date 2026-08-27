@@ -42,6 +42,7 @@ _MACOS_RUNTIME_DEPENDENCIES = {
     "/usr/lib/libresolv.9.dylib",
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
     "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+    "/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration",
 }
 _WINDOWS_RUNTIME_DEPENDENCIES = {
     "ADVAPI32.DLL",
