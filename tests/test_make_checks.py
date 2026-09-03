@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from adbc_drivers_dev import make_checks
+from adbc_drivers_dev import make_checks, make_config
 
 
 @pytest.mark.parametrize(
@@ -28,7 +28,12 @@ from adbc_drivers_dev import make_checks
     ],
 )
 def test_check_required_symbols(driver: str, driver_init: str) -> None:
+    config = make_config.MakeConfig(
+        driver="rustdummy",
+        lang=make_config.LangRust(lang="rust"),
+    )
     make_checks.check_required_symbols(
+        config,
         [
             "AdbcDatabaseNew",
             "AdbcConnectionInit",
@@ -42,6 +47,7 @@ def test_check_required_symbols(driver: str, driver_init: str) -> None:
 
     with pytest.raises(RuntimeError, match="AdbcDriverInit"):
         make_checks.check_required_symbols(
+            config,
             [
                 "AdbcDatabaseNew",
                 "AdbcConnectionInit",
@@ -54,10 +60,24 @@ def test_check_required_symbols(driver: str, driver_init: str) -> None:
 
     with pytest.raises(RuntimeError, match=driver_init):
         make_checks.check_required_symbols(
+            config,
             ["AdbcDatabaseNew", "AdbcConnectionInit", "AdbcDriverInit", "bad_symbol"],
             Path("driver.so"),
             driver,
         )
+
+    make_checks.check_required_symbols(
+        make_config.MakeConfig(
+            driver="rustdummy",
+            lang=make_config.LangRust(lang="rust"),
+            checks=make_config.CheckConfig(
+                disable_driver_entrypoint_check=True,
+            ),
+        ),
+        ["AdbcDatabaseNew", "AdbcConnectionInit", "AdbcDriverInit", "bad_symbol"],
+        Path("driver.so"),
+        driver,
+    )
 
 
 def test_check_disallowed_symbols() -> None:

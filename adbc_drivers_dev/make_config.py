@@ -333,6 +333,20 @@ class LangScript(BaseModel):
             raise ValueError(f"Unknown toolchain: {self.toolchain}")
 
 
+class CheckConfig(BaseModel):
+    model_config = {
+        "extra": "forbid",
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
+
+    disable_driver_entrypoint_check: bool = Field(
+        default=False,
+        alias="disable-driver-entrypoint-check",
+        description="Disable the check for the symbol AdbcDriverFoobarInit",
+    )
+
+
 class MakeConfig(BaseModel):
     model_config = {
         "extra": "forbid",
@@ -359,6 +373,10 @@ class MakeConfig(BaseModel):
         default_factory=dict,
         alias="additional-runtime-dependencies",
         description="Additional runtime dependencies allowed by platform",
+    )
+    checks: CheckConfig = Field(
+        default_factory=CheckConfig,
+        description="Checks to perform on the built driver",
     )
 
     def build_plan(self, config: MakeEnv) -> MakePlan:
