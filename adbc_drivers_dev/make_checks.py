@@ -383,7 +383,7 @@ def _check_macos(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_macos_symbols(binary)
     dependencies = _read_macos_dependencies(binary)
     exported_symbols = _extract_exported_macos_symbols(symbols)
-    check_required_symbols(exported_symbols, binary, make_config.driver)
+    check_required_symbols(make_config, exported_symbols, binary, make_config.driver)
     check_disallowed_symbols(exported_symbols, binary, make_config.driver)
     _check_macos_deployment_target(binary)
     allowed_dependencies = _MACOS_RUNTIME_DEPENDENCIES | set(
@@ -400,7 +400,7 @@ def _check_windows(make_config: MakeConfig, binary: Path) -> None:
     symbols = _read_windows_symbols(binary)
     dependencies = _read_windows_dependencies(binary)
     exported_symbols = _extract_exported_windows_symbols(symbols)
-    check_required_symbols(exported_symbols, binary, make_config.driver)
+    check_required_symbols(make_config, exported_symbols, binary, make_config.driver)
     allowed_dependencies = _WINDOWS_RUNTIME_DEPENDENCIES | {
         dependency.upper()
         for dependency in make_config.additional_runtime_dependencies.get("windows", [])
