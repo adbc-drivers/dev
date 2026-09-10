@@ -154,7 +154,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659  # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -384,7 +384,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659  # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -414,7 +414,7 @@ jobs:
 <% endif %>
 <% if azure %>
       - name: Azure Login
-        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c  # v3.0.2
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906  # v3.1.0
         if: matrix.azure
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -612,7 +612,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659  # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -724,7 +724,7 @@ jobs:
           go-version: "stable"
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659  # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
