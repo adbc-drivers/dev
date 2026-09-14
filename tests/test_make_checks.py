@@ -351,9 +351,9 @@ def test_check_macos_rejects_new_deployment_target(
     monkeypatch.setattr(
         make_checks.subprocess,
         "check_output",
-        lambda *args, **kwargs: "      minos 12.0\n",
+        lambda *args, **kwargs: "      minos 14.0\n",
     )
-    with pytest.raises(RuntimeError, match="macOS 12.0"):
+    with pytest.raises(RuntimeError, match="macOS 14.0"):
         make_checks._check_macos_deployment_target(Path("driver.dylib"))
 
 
@@ -363,6 +363,6 @@ def test_check_macos_accepts_supported_deployment_target(
     monkeypatch.setattr(
         make_checks.subprocess,
         "check_output",
-        lambda *args, **kwargs: "      minos 11.0\n",
+        lambda *args, **kwargs: "      minos 13.0\n",
     )
     make_checks._check_macos_deployment_target(Path("driver.dylib"))

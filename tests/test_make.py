@@ -149,14 +149,14 @@ def test_build_config(rust_driver_root: tuple[Path, Path]) -> None:
 def test_merge_build_env() -> None:
     assert merge_build_env(
         {"CGO_CFLAGS": "-O2", "OTHER": "old"},
-        {"CGO_CFLAGS": "-mmacosx-version-min=11.0", "OTHER": "new"},
+        {"CGO_CFLAGS": "-mmacos-version-min=13.0", "OTHER": "new"},
     ) == {
-        "CGO_CFLAGS": "-O2 -mmacosx-version-min=11.0",
+        "CGO_CFLAGS": "-O2 -mmacos-version-min=13.0",
         "OTHER": "new",
     }
     assert merge_build_env(
-        {"CGO_LDFLAGS": ""}, {"CGO_LDFLAGS": "-mmacosx-version-min=11.0"}
-    ) == {"CGO_LDFLAGS": "-mmacosx-version-min=11.0"}
+        {"CGO_LDFLAGS": ""}, {"CGO_LDFLAGS": "-mmacos-version-min=13.0"}
+    ) == {"CGO_LDFLAGS": "-mmacos-version-min=13.0"}
 
 
 def test_manylinux_config_overrides_environment(
@@ -369,9 +369,9 @@ def test_rust_macos_arm64(rust_driver_root: tuple[Path, Path]) -> None:
     make_config = MakeConfig(driver="foobar", lang=LangRust(lang="rust", features=[]))
     plan = make_config.build_plan(config)
     assert plan.env_vars == {
-        "CGO_CFLAGS": "-mmacosx-version-min=11.0",
-        "CGO_LDFLAGS": "-mmacosx-version-min=11.0",
-        "MACOSX_DEPLOYMENT_TARGET": "11.0",
+        "CGO_CFLAGS": "-mmacos-version-min=13.0",
+        "CGO_LDFLAGS": "-mmacos-version-min=13.0",
+        "MACOSX_DEPLOYMENT_TARGET": "13.0",
     }
     assert plan.commands == [["cargo", "build", "--release"]]
     assert (
