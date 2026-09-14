@@ -372,7 +372,7 @@ def _check_macos_deployment_target(binary: Path) -> None:
         raise RuntimeError("Could not determine minimum macOS version")
 
     version = packaging.version.Version(minos)
-    max_version = packaging.version.Version("11.0")
+    max_version = packaging.version.Version("13.0")
     if version > max_version:
         raise RuntimeError(
             f"{binary} requires macOS {version} but {max_version} was expected at most"

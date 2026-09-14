@@ -539,9 +539,11 @@ class MakeConfig(BaseModel):
 def default_build_env(config: MakeEnv) -> dict[str, str]:
     env = {}
     if config.target_platform == "macos":
-        # https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
-        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
-        env["CGO_CFLAGS"] = "-mmacosx-version-min=11.0"
-        env["CGO_LDFLAGS"] = "-mmacosx-version-min=11.0"
+        # We target macOS 13 (Ventura) because Go 1.27 requires that as a baseline
+        # - https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mmacos-version-min
+        # - https://doc.rust-lang.org/nightly/rustc/platform-support/apple-darwin.html#os-version
+        env["MACOSX_DEPLOYMENT_TARGET"] = "13.0"
+        env["CGO_CFLAGS"] = "-mmacos-version-min=13.0"
+        env["CGO_LDFLAGS"] = "-mmacos-version-min=13.0"
 
     return env
