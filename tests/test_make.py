@@ -156,7 +156,7 @@ def test_merge_build_env() -> None:
     }
     assert merge_build_env(
         {"CGO_LDFLAGS": ""}, {"CGO_LDFLAGS": "-mmacos-version-min=13.0"}
-    ) == {"CGO_LDFLAGS": "-mmacosx-version-min=13.0"}
+    ) == {"CGO_LDFLAGS": "-mmacos-version-min=13.0"}
 
 
 def test_manylinux_config_overrides_environment(
