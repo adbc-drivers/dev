@@ -30,6 +30,7 @@ _LINUX_RUNTIME_DEPENDENCIES = {
     "libpthread.so.0",
     "libresolv.so.2",
     "librt.so.1",
+    "libstdc++.so.6",
     "linux-vdso.so.1",
 }
 _LINUX_LOADERS = {
@@ -38,6 +39,7 @@ _LINUX_LOADERS = {
 }
 _MACOS_RUNTIME_DEPENDENCIES = {
     "/usr/lib/libSystem.B.dylib",
+    "/usr/lib/libc++.1.dylib",
     "/usr/lib/libiconv.2.dylib",
     "/usr/lib/libresolv.9.dylib",
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
