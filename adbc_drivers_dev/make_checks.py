@@ -43,6 +43,7 @@ _MACOS_RUNTIME_DEPENDENCIES = {
     "/usr/lib/libiconv.2.dylib",
     "/usr/lib/libresolv.9.dylib",
     "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+    "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
     "/System/Library/Frameworks/Security.framework/Versions/A/Security",
     "/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration",
 }
