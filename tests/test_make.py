@@ -228,7 +228,7 @@ def test_go_linux_amd64(go_driver_root: tuple[Path, Path]) -> None:
             "module",
             "build",
             "-buildmode=c-shared",
-            "-tags=driverlib,custom_feature,release_feature",
+            "-tags=driverlib,timetzdata,custom_feature,release_feature",
             "-ldflags=-w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=0.1.0",
             "-o",
             "build/libadbc_driver_godummy.so",
@@ -247,7 +247,7 @@ def test_go_linux_amd64(go_driver_root: tuple[Path, Path]) -> None:
 
     config.debug = True
     plan = make_config.build_plan(config)
-    assert "-tags=driverlib,assert,custom_feature" in plan.commands[0]
+    assert "-tags=driverlib,timetzdata,assert,custom_feature" in plan.commands[0]
 
 
 def test_go_linux_amd64_ci(go_driver_root: tuple[Path, Path]) -> None:
@@ -277,7 +277,7 @@ def test_go_linux_amd64_ci(go_driver_root: tuple[Path, Path]) -> None:
             "module",
             "build",
             "-buildmode=c-shared",
-            "-tags=driverlib",
+            "-tags=driverlib,timetzdata",
             "-ldflags=-w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=0.1.0 -linkmode external -extldflags=-Wl,--version-script=/only-export-adbc.ld",
             "-o",
             "build/libadbc_driver_godummy.so",

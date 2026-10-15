@@ -393,7 +393,8 @@ class MakeConfig(BaseModel):
                 # Embed Go version
                 f"-X {_GO_VERSION_FLAG}={config.version}",
             ]
-            tags = ["driverlib"]
+            # Include IANA timezone data when the host has no timezone database.
+            tags = ["driverlib", "timetzdata"]
             if config.debug:
                 tags.append("assert")
             tags.extend(self.lang.build_tags)
