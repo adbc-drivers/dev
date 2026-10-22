@@ -246,6 +246,13 @@ def generate_workflows(args) -> int:
             },
         )
 
+    write_workflow(
+        args.repository / ".github",
+        env.get_template("zizmor.yaml"),
+        "zizmor.yaml",
+        params.to_dict(),
+    )
+
     return retcode
 
 
