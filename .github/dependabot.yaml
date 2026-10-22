@@ -14,6 +14,14 @@
 
 version: 2
 updates:
+  - package-ecosystem: "cargo"
+    commit-message:
+      prefix: "chore: "
+    directory: "/adbc_drivers_dev/tools"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     commit-message:
       prefix: "chore: "
