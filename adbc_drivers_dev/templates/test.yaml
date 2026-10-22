@@ -91,8 +91,11 @@ defaults:
 permissions:
   contents: read
 
+<% set has_test_platforms = ["linux_amd64", "macos_arm64", "windows_amd64"] | reject("in", lang_config.exclude_platforms) | list %>
+<% set run_tests = not lang_config.test.skip and has_test_platforms %>
+
 jobs:
-<% if not lang_config.test.skip %>
+<% if run_tests %>
   test:
     name: "Test/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
@@ -100,9 +103,15 @@ jobs:
       fail-fast: true
       matrix:
         include:
+<% if "linux_amd64" not in lang_config.exclude_platforms %>
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
+<% endif %>
+<% if "macos_arm64" not in lang_config.exclude_platforms %>
           - { platform: macos, arch: arm64, runner: macos-latest }
+<% endif %>
+<% if "windows_amd64" not in lang_config.exclude_platforms %>
           - { platform: windows, arch: amd64, runner: windows-latest }
+<% endif %>
 <% if lang_config.test.environment %>
     environment: <{lang_config.test.environment}>
 <% endif %>
@@ -567,7 +576,7 @@ jobs:
 
   build:
     name: "Build <{driver}>/${{ matrix.platform }}_${{ matrix.arch }}"
-<% if not lang_config.test.skip %>
+<% if run_tests %>
     needs: test
 <% endif %>
     runs-on: ${{ matrix.runner }}
@@ -575,10 +584,18 @@ jobs:
       fail-fast: true
       matrix:
         include:
+<% if "linux_amd64" not in lang_config.exclude_platforms %>
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
+<% endif %>
+<% if "linux_arm64" not in lang_config.exclude_platforms %>
           - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
+<% endif %>
+<% if "macos_arm64" not in lang_config.exclude_platforms %>
           - { platform: macos, arch: arm64, runner: macos-latest }
+<% endif %>
+<% if "windows_amd64" not in lang_config.exclude_platforms %>
           - { platform: windows, arch: amd64, runner: windows-latest }
+<% endif %>
 <% if lang_config.build.environment  %>
     environment: <{lang_config.build.environment}>
 <% endif %>
@@ -806,6 +823,7 @@ jobs:
           retention-days: 2
 <% endif %>
 
+<% if has_test_platforms %>
   test-packages:
     name: "Test Packages/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
@@ -815,9 +833,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+<% if "linux_amd64" not in lang_config.exclude_platforms %>
           - { platform: linux, arch: amd64, runner: ubuntu-latest }
+<% endif %>
+<% if "macos_arm64" not in lang_config.exclude_platforms %>
           - { platform: macos, arch: arm64, runner: macos-latest }
+<% endif %>
+<% if "windows_amd64" not in lang_config.exclude_platforms %>
           - { platform: windows, arch: amd64, runner: windows-latest }
+<% endif %>
 <% if lang_config.test_packages.environment %>
     environment: <{lang_config.test_packages.environment}>
 <% endif %>
@@ -903,6 +927,8 @@ jobs:
 <% endif %>
           pixi exec -s adbc-driver-manager -s pyarrow -s pytest python -m pytest -vs ci/test_package.py
 
+<% endif %>
+
   release:
 <% if release %>
     name: "Release"
@@ -912,7 +938,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - package
+<% if has_test_platforms %>
       - test-packages
+<% endif %>
 <% if not lang_config.validation.skip %>
       - validate
 <% endif %>
