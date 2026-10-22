@@ -317,6 +317,15 @@ jobs:
         working-directory: <{ lang_subdir }>
         run: |
           cargo clippy --locked --no-deps -- -A unused_variables -D warnings
+<% if file_exists("deny.toml") %>
+
+      - name: cargo deny
+        if: runner.os == 'Linux'
+        working-directory: <{ lang_subdir }>
+        run: |
+          cargo install cargo-deny --locked
+          cargo deny --all-features --locked check
+<% endif %>
 <% endif %>
 <% endif %>
 
