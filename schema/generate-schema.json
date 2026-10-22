@@ -72,6 +72,20 @@
           "$ref": "#/$defs/LangBuildConfig",
           "description": "Configuration for building the driver."
         },
+        "exclude-platforms": {
+          "description": "Platforms to exclude from build/test.",
+          "items": {
+            "enum": [
+              "linux_amd64",
+              "linux_arm64",
+              "macos_arm64",
+              "windows_amd64"
+            ],
+            "type": "string"
+          },
+          "title": "Exclude-Platforms",
+          "type": "array"
+        },
         "subdir": {
           "anyOf": [
             {
@@ -129,6 +143,24 @@
           "default": null,
           "description": "Name of a GitHub Actions Environment to activate",
           "title": "Environment"
+        },
+        "aws": {
+          "default": false,
+          "description": "Log in to AWS in this config. Expects AWS_ROLE, AWS_ROLE_SESSION_NAME secrets",
+          "title": "Aws",
+          "type": "boolean"
+        },
+        "azure": {
+          "default": false,
+          "description": "Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
+          "title": "Azure",
+          "type": "boolean"
+        },
+        "gcloud": {
+          "default": false,
+          "description": "Log in to Google Cloud in this config. Expects GCLOUD_SERVICE_ACCOUNT, GCLOUD_WORKLOAD_IDENTITY_PROVIDER secrets",
+          "title": "Gcloud",
+          "type": "boolean"
         }
       },
       "title": "LangTestConfig",
@@ -183,10 +215,22 @@
           "description": "Name of a GitHub Actions Environment to activate",
           "title": "Environment"
         },
+        "aws": {
+          "default": false,
+          "description": "Log in to AWS in this config. Expects AWS_ROLE, AWS_ROLE_SESSION_NAME secrets",
+          "title": "Aws",
+          "type": "boolean"
+        },
         "azure": {
           "default": false,
           "description": "Log in to Azure in this config. Expects AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET secrets",
           "title": "Azure",
+          "type": "boolean"
+        },
+        "gcloud": {
+          "default": false,
+          "description": "Log in to Google Cloud in this config. Expects GCLOUD_SERVICE_ACCOUNT, GCLOUD_WORKLOAD_IDENTITY_PROVIDER secrets",
+          "title": "Gcloud",
           "type": "boolean"
         }
       },

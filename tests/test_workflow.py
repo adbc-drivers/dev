@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from pathlib import Path
+
 import pytest
+import tomlkit
 from pydantic import ValidationError
 
 from adbc_drivers_dev.generate import GenerateConfig, LangConfig
@@ -283,3 +287,36 @@ def test_repository_override() -> None:
     config = GenerateConfig.model_validate({"driver": "foo", "repository": "bar"})
     assert config.driver == "foo"
     assert config.repository == "bar"
+
+
+def test_exclude_platforms_config() -> None:
+    assert LangConfig().exclude_platforms == []
+    for key in ("exclude-platforms", "exclude_platforms"):
+        config = GenerateConfig.model_validate(
+            tomlkit.loads(f'[lang.go]\n{key} = ["linux_arm64"]\n').unwrap()
+        )
+        assert config.lang["go"].exclude_platforms == ["linux_arm64"]
+        assert config.lang["go"].model_dump(by_alias=True)["exclude-platforms"] == [
+            "linux_arm64"
+        ]
+
+
+@pytest.mark.parametrize(
+    "excluded",
+    [
+        ["linux_aarch64"],
+        ["win_amd64"],
+        "linux_arm64",
+        ["linux_amd64", "linux_arm64", "macos_arm64", "windows_amd64"],
+    ],
+)
+def test_exclude_platforms_invalid(excluded) -> None:
+    with pytest.raises(ValidationError):
+        LangConfig.model_validate({"exclude-platforms": excluded})
+
+
+def test_generate_schema_matches_model() -> None:
+    schema_path = Path(__file__).parents[1] / "schema" / "generate-schema.json"
+    assert json.loads(schema_path.read_text()) == GenerateConfig.model_json_schema(
+        mode="validation"
+    )

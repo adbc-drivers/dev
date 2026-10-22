@@ -194,6 +194,13 @@ class LangConfig(BaseModel):
         default_factory=LangBuildConfig,
         description="Configuration for building the driver.",
     )
+    exclude_platforms: list[
+        typing.Literal["linux_amd64", "linux_arm64", "macos_arm64", "windows_amd64"]
+    ] = Field(
+        default_factory=list,
+        alias="exclude-platforms",
+        description="Platforms to exclude from build/test.",
+    )
     subdir: str | None = Field(
         default=None,
         description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",
@@ -211,6 +218,18 @@ class LangConfig(BaseModel):
         default_factory=LangValidationConfig,
         description="Configuration for the driver validation suite.",
     )
+
+    @field_validator("exclude_platforms")
+    @classmethod
+    def require_build_platform(cls, value: list[str]) -> list[str]:
+        if set(value) == {
+            "linux_amd64",
+            "linux_arm64",
+            "macos_arm64",
+            "windows_amd64",
+        }:
+            raise ValueError("exclude-platforms must leave at least one build platform")
+        return value
 
     @model_validator(mode="before")
     @classmethod
