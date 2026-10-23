@@ -54,8 +54,6 @@ jobs:
 - `dev.yaml`: runs `pre-commit` and checks that the PR title meets the
   [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
   standard.
-- `dev_issues.yaml`: intended to be run when a "take" comment is made on an
-  issue.  Assigns the issue to the commenter.
 - `release.yaml`: create a draft release on GitHub with an attached changelog.
 - `test.yaml`: build and test a Go-based driver.  If tests pass, also create
   shared libraries for each platform/architecture.
