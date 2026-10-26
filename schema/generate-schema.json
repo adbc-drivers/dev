@@ -86,6 +86,17 @@
           "title": "Exclude-Platforms",
           "type": "array"
         },
+        "github-stack-behavior": {
+          "default": "all",
+          "description": "Which PRs in a stack run language_test.yaml: 'all', 'bottom' (lowest unmerged), and 'top'.",
+          "enum": [
+            "all",
+            "bottom",
+            "top"
+          ],
+          "title": "Github-Stack-Behavior",
+          "type": "string"
+        },
         "subdir": {
           "anyOf": [
             {
