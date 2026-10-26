@@ -208,6 +208,13 @@ class LangConfig(BaseModel):
         alias="exclude-platforms",
         description="Platforms to exclude from build/test.",
     )
+    github_stack_behavior: typing.Literal["all", "bottom", "top"] = Field(
+        default="all",
+        alias="github-stack-behavior",
+        description=(
+            "Which PRs in a stack run language_test.yaml: 'all', 'bottom' (lowest unmerged), and 'top'."
+        ),
+    )
     subdir: str | None = Field(
         default=None,
         description="Override the default subdirectory for this language. Use '.' to place files at the repository root.",

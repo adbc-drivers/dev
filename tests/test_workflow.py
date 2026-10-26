@@ -85,6 +85,32 @@ def test_model_custom() -> None:
     assert config != GenerateConfig.model_validate({})
 
 
+def test_github_stack_behavior_default() -> None:
+    assert LangConfig().github_stack_behavior == "all"
+    config = GenerateConfig.model_validate({"lang": {"go": True}})
+    assert config.lang["go"].github_stack_behavior == "all"
+
+
+@pytest.mark.parametrize("behavior", ["all", "bottom", "top"])
+@pytest.mark.parametrize("key", ["github-stack-behavior", "github_stack_behavior"])
+def test_github_stack_behavior(key: str, behavior: str) -> None:
+    config = GenerateConfig.model_validate({"lang": {"go": {key: behavior}}})
+    assert config.lang["go"].github_stack_behavior == behavior
+    assert (
+        config.model_dump(by_alias=True)["lang"]["go"]["github-stack-behavior"]
+        == behavior
+    )
+    assert config.model_dump()["lang"]["go"]["github_stack_behavior"] == behavior
+
+
+@pytest.mark.parametrize("behavior", ["invalid", "TOP", "", None, True, 1])
+def test_github_stack_behavior_invalid(behavior) -> None:
+    with pytest.raises(ValidationError):
+        GenerateConfig.model_validate(
+            {"lang": {"go": {"github-stack-behavior": behavior}}}
+        )
+
+
 def test_params_secrets() -> None:
     config = GenerateConfig.model_validate(
         {

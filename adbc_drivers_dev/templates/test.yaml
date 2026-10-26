@@ -94,9 +94,21 @@ permissions:
 <% set has_test_platforms = ["linux_amd64", "macos_arm64", "windows_amd64"] | reject("in", lang_config.exclude_platforms) | list %>
 <% set run_tests = not lang_config.test.skip and has_test_platforms %>
 
+<% set stack_condition = none %>
+<% if not release %>
+<% if lang_config.github_stack_behavior == "bottom" %>
+<% set stack_condition = "github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.base.ref == github.event.pull_request.base.ref" %>
+<% elif lang_config.github_stack_behavior == "top" %>
+<% set stack_condition = "github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size" %>
+<% endif %>
+<% endif %>
+
 jobs:
 <% if run_tests %>
   test:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
     name: "Test/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -344,6 +356,9 @@ jobs:
 
 <% if not lang_config.validation.skip %>
   validate:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
     name: "Validate <{driver}> ${{ matrix.vendor_version }}/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -579,6 +594,9 @@ jobs:
 <% endif %>
 
   build:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
     name: "Build <{driver}>/${{ matrix.platform }}_${{ matrix.arch }}"
 <% if run_tests %>
     needs: test
@@ -710,6 +728,9 @@ jobs:
           retention-days: 2
 
   package:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
     name: "Generate Packages"
     runs-on: ubuntu-latest
     needs:
@@ -829,6 +850,9 @@ jobs:
 
 <% if has_test_platforms %>
   test-packages:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
     name: "Test Packages/${{ matrix.platform }}_${{ matrix.arch }}"
     runs-on: ${{ matrix.runner }}
     needs:
@@ -934,6 +958,9 @@ jobs:
 <% endif %>
 
   release:
+<% if stack_condition %>
+    if: <{stack_condition}>
+<% endif %>
 <% if release %>
     name: "Release"
 <% else %>
