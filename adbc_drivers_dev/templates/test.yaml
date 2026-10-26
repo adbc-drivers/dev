@@ -169,7 +169,7 @@ jobs:
           components: "clippy"
 <% endif %>
 
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
@@ -408,7 +408,7 @@ jobs:
           components: "clippy"
 <% endif %>
 
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
@@ -644,7 +644,7 @@ jobs:
           components: "clippy"
 <% endif %>
 
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
@@ -756,7 +756,7 @@ jobs:
           components: "clippy"
 <% endif %>
 
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
@@ -851,7 +851,7 @@ jobs:
         with:
           cache: <{"false" if release else "true"}>
           go-version: 'stable'
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
@@ -977,7 +977,7 @@ jobs:
           submodules: 'recursive'
 <% endif %>
 
-      - uses: prefix-dev/setup-pixi@9dabb60412d3d2d967a8d682f7ce01317af40514  # v0.11.0
+      - uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94  # v0.11.2
         with:
           pixi-version: <{tool_versions["pixi"]}>
           run-install: false
