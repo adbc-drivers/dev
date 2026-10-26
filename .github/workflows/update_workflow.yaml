@@ -17,7 +17,12 @@
 name: Update Workflow Template Actions
 
 on:
-  pull_request: {}
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/update_workflow.yaml"
+      - "adbc_drivers_dev/workflow.py"
   schedule:
     - cron: 14 23 * * *
   workflow_dispatch: {}
