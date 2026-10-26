@@ -151,6 +151,13 @@ class LangTestConfig(BaseModel):
         default=False,
         description="Whether to skip tests in CI (this should only be used temporarily while setting up a driver or for build-only drivers)",
     )
+    timeout_minutes: int = Field(
+        alias="timeout-minutes",
+        default=15,
+        strict=True,
+        gt=0,
+        description="Timeout in minutes for Go and Rust test commands in CI. Must be a positive integer.",
+    )
     service_name: str = Field(
         alias="service-name",
         default="test-service",

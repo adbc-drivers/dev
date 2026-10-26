@@ -19,7 +19,7 @@ import pytest
 import tomlkit
 from pydantic import ValidationError
 
-from adbc_drivers_dev.generate import GenerateConfig, LangConfig
+from adbc_drivers_dev.generate import GenerateConfig, LangConfig, LangTestConfig
 
 
 def test_model_default() -> None:
@@ -320,3 +320,17 @@ def test_generate_schema_matches_model() -> None:
     assert json.loads(schema_path.read_text()) == GenerateConfig.model_json_schema(
         mode="validation"
     )
+
+
+def test_test_timeout_config() -> None:
+    assert LangTestConfig().timeout_minutes == 15
+    for key in ("timeout-minutes", "timeout_minutes"):
+        config = LangTestConfig.model_validate({key: 30})
+        assert config.timeout_minutes == 30
+        assert config.model_dump(by_alias=True)["timeout-minutes"] == 30
+
+
+@pytest.mark.parametrize("timeout", [0, -1, "15", "PT15M", 1.5, 15.0, True, None])
+def test_test_timeout_invalid(timeout) -> None:
+    with pytest.raises(ValidationError):
+        LangTestConfig.model_validate({"timeout-minutes": timeout})

@@ -277,9 +277,13 @@ jobs:
           set +a
 
 <% if lang == "go" %>
-          go test -tags assert -v ./...
+          go test -timeout <{lang_config.test.timeout_minutes}>m -tags assert -v ./...
 <% elif lang == "rust" %>
-          cargo test
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            /usr/bin/perl -e 'alarm shift; exec @ARGV' <{lang_config.test.timeout_minutes * 60}> cargo test
+          else
+            timeout <{lang_config.test.timeout_minutes}>m cargo test
+          fi
 <% elif lang == "script" %>
           ./ci/scripts/test.sh ${{ matrix.platform }} ${{ matrix.arch }}
 <% else %>

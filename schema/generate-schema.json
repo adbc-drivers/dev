@@ -125,6 +125,13 @@
           "title": "Skip",
           "type": "boolean"
         },
+        "timeout-minutes": {
+          "default": 15,
+          "description": "Timeout in minutes for Go and Rust test commands in CI. Must be a positive integer.",
+          "exclusiveMinimum": 0,
+          "title": "Timeout-Minutes",
+          "type": "integer"
+        },
         "service-name": {
           "default": "test-service",
           "description": "docker-compose service to start for tests",
