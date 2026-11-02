@@ -300,11 +300,14 @@ def check_required_symbols(
 
 
 def check_disallowed_symbols(
-    exported_symbols: list[str], binary: Path, driver: str
+    make_config: MakeConfig, exported_symbols: list[str], binary: Path, driver: str
 ) -> None:
     """Check that disallowed symbols are not exported."""
     bad_symbols = [
-        symbol for symbol in exported_symbols if not symbol.startswith("Adbc")
+        symbol
+        for symbol in exported_symbols
+        if not symbol.startswith("Adbc")
+        and symbol not in make_config.checks.additional_exported_symbols
     ]
     if bad_symbols:
         raise RuntimeError(
@@ -351,7 +354,7 @@ def _check_linux(make_env: MakeEnv, make_config: MakeConfig, binary: Path) -> No
         )
     exported_symbols = _extract_exported_linux_symbols(symbols)
     check_required_symbols(make_config, exported_symbols, binary, make_config.driver)
-    check_disallowed_symbols(exported_symbols, binary, make_config.driver)
+    check_disallowed_symbols(make_config, exported_symbols, binary, make_config.driver)
     check_linux_libc_requirement(symbols, make_config.manylinux)
     try:
         loader = _LINUX_LOADERS[make_env.target_architecture]
@@ -396,7 +399,7 @@ def _check_macos(make_config: MakeConfig, binary: Path) -> None:
     dependencies = _read_macos_dependencies(binary)
     exported_symbols = _extract_exported_macos_symbols(symbols)
     check_required_symbols(make_config, exported_symbols, binary, make_config.driver)
-    check_disallowed_symbols(exported_symbols, binary, make_config.driver)
+    check_disallowed_symbols(make_config, exported_symbols, binary, make_config.driver)
     _check_macos_deployment_target(binary)
     allowed_dependencies = _MACOS_RUNTIME_DEPENDENCIES | set(
         make_config.additional_runtime_dependencies.get("macos", [])
