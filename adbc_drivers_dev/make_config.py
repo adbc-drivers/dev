@@ -340,6 +340,12 @@ class CheckConfig(BaseModel):
         "validate_by_alias": True,
     }
 
+    additional_exported_symbols: list[str] = Field(
+        default_factory=list,
+        alias="additional-exported-symbols",
+        description="Additional exact symbol names allowed by export checks",
+    )
+
     disable_driver_entrypoint_check: bool = Field(
         default=False,
         alias="disable-driver-entrypoint-check",

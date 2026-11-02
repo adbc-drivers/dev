@@ -81,12 +81,15 @@ def test_check_required_symbols(driver: str, driver_init: str) -> None:
 
 
 def test_check_disallowed_symbols() -> None:
+    config = make_config.MakeConfig(driver="driver", lang={"lang": "rust"})
     make_checks.check_disallowed_symbols(
+        config,
         [],
         Path("driver.so"),
         "driver",
     )
     make_checks.check_disallowed_symbols(
+        config,
         ["AdbcFooBar"],
         Path("driver.so"),
         "driver",
@@ -94,6 +97,7 @@ def test_check_disallowed_symbols() -> None:
 
     with pytest.raises(RuntimeError, match="bad_symbol"):
         make_checks.check_disallowed_symbols(
+            config,
             ["AdbcFooBar", "bad_symbol"],
             Path("driver.so"),
             "driver",
@@ -367,3 +371,23 @@ def test_check_macos_accepts_supported_deployment_target(
         lambda *args, **kwargs: "      minos 13.0\n",
     )
     make_checks._check_macos_deployment_target(Path("driver.dylib"))
+
+
+def test_additional_exported_symbols() -> None:
+    config = make_config.MakeConfig(
+        driver="driver",
+        lang=make_config.LangRust(lang="rust"),
+        checks=make_config.CheckConfig(
+            additional_exported_symbols=["CustomHelper", "Custom*"]
+        ),
+    )
+    make_checks.check_disallowed_symbols(
+        config, ["AdbcFoo"], Path("driver.so"), "driver"
+    )
+    make_checks.check_disallowed_symbols(
+        config, ["CustomHelper"], Path("driver.so"), "driver"
+    )
+    with pytest.raises(RuntimeError, match="Custom"):
+        make_checks.check_disallowed_symbols(
+            config, ["Custom"], Path("driver.so"), "driver"
+        )
