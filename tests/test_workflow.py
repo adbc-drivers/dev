@@ -45,6 +45,7 @@ def test_model_default() -> None:
         "repository": "(unknown)",
         "concurrency_key": None,
         "private": False,
+        "license_header": None,
         "lang": {},
         "secrets": {
             "all": {},
