@@ -310,6 +310,12 @@ class LangRust(BaseModel):
         alias="manifest-path",
     )
 
+    crate_path: str | None = Field(
+        default=None,
+        alias="crate-path",
+        description="Member crate directory relative to manifest-path (or the driver root)",
+    )
+
 
 class LangScript(BaseModel):
     model_config = {
@@ -487,8 +493,21 @@ class MakeConfig(BaseModel):
                 args.append("--features")
                 args.append(",".join(self.lang.features))
 
+            if self.lang.crate_path:
+                manifest_path = (
+                    manifest_path.parent / self.lang.crate_path / "Cargo.toml"
+                )
+
             with manifest_path.open("rb") as f:
                 cargo_toml = tomllib.load(f)
+
+            if "package" not in cargo_toml:
+                raise ValueError(
+                    f"{manifest_path} has no package; configure lang.crate-path "
+                    "to select a workspace member"
+                )
+            if self.lang.crate_path:
+                args.extend(["-p", cargo_toml["package"]["name"]])
 
             if "lib" in cargo_toml and "name" in cargo_toml["lib"]:
                 lib_name = cargo_toml["lib"]["name"]

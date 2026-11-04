@@ -596,3 +596,61 @@ def test_rust_actual_release_ci(rust_driver_root: tuple[Path, Path]) -> None:
     assert (
         rust_driver_root[1] / "build" / f"{prefix}adbc_driver_rustdummy{suffix}"
     ).is_file()
+
+
+@pytest.mark.parametrize("manifest_dir", [None, "rust"])
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize(
+    "platform,suffix", [("linux", ".so"), ("macos", ".dylib"), ("windows", ".dll")]
+)
+@pytest.mark.parametrize("lib_name", [None, "custom"])
+def test_rust_workspace(tmp_path, manifest_dir, debug, platform, suffix, lib_name):
+    workspace = tmp_path / (manifest_dir or ".")
+    member = workspace / "crates" / "member"
+    member.mkdir(parents=True)
+    (workspace / "Cargo.toml").write_text('[workspace]\nmembers = ["crates/*"]\n')
+    manifest = '[package]\nname = "driver-package"\nversion = "0.1.0"\n'
+    if lib_name:
+        manifest += f'[lib]\nname = "{lib_name}"\n'
+    (member / "Cargo.toml").write_text(manifest)
+    env = MakeEnv(
+        ci=True,
+        debug=debug,
+        host_platform=platform,
+        target_platform=platform,
+        host_architecture="amd64",
+        target_architecture="amd64",
+        repo_root=tmp_path,
+        driver_root=tmp_path,
+        version="0.1.0",
+    )
+    lang = LangRust.model_validate(
+        {
+            "lang": "rust",
+            "manifest-path": manifest_dir,
+            "crate-path": "crates/member",
+            "features": ["bundled"],
+        }
+    )
+    plan = MakeConfig(driver="dummy", lang=lang).build_plan(env)
+    expected = ["cargo", "build"]
+    if manifest_dir:
+        expected += ["--manifest-path", str(Path(manifest_dir) / "Cargo.toml")]
+    if not debug:
+        expected += ["--release"]
+    expected += ["--features", "bundled", "-p", "driver-package"]
+    assert plan.commands == [expected]
+    prefix = "" if platform == "windows" else "lib"
+    assert (
+        plan.artifact_path
+        == workspace
+        / "target"
+        / ("debug" if debug else "release")
+        / f"{prefix}{lib_name or 'driver_package'}{suffix}"
+    )
+    assert plan.docker_container == (
+        "manylinux-rust" if platform == "linux" and not debug else None
+    )
+    lang.crate_path = None
+    with pytest.raises(ValueError, match="configure lang.crate-path"):
+        MakeConfig(driver="dummy", lang=lang).build_plan(env)
