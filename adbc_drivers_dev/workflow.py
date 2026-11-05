@@ -292,8 +292,14 @@ def latest_action_version(action: str) -> (packaging.version.Version, str, str):
 
     tags = []
     for ref, (sha, tag) in refs.items():
-        version = packaging.version.parse(tag.lstrip("v"))
+        try:
+            version = packaging.version.parse(tag.removeprefix("v"))
+        except packaging.version.InvalidVersion:
+            continue
         tags.append((version, tag, sha))
+
+    if not tags:
+        raise ValueError(f"No valid version tags found for {action}")
 
     tags.sort(key=lambda x: x[0])
     latest = tags[-1]
