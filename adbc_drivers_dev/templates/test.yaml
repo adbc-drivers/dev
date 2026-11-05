@@ -177,7 +177,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -423,7 +423,7 @@ jobs:
           go-version-file: <{go_mod_path}>/go.mod
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -686,7 +686,7 @@ jobs:
             Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
@@ -801,7 +801,7 @@ jobs:
           go-version: "stable"
 <% endif %>
 <% if "rust" in lang_tools %>
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
         with:
           cache: <{"false" if release else "true"}>
           components: "clippy"
