@@ -169,7 +169,7 @@ jobs:
 <% endif %>
 
 <% if "go" in lang_tools %>
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
           cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
@@ -415,7 +415,7 @@ jobs:
 <% endif %>
 
 <% if "go" in lang_tools %>
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
           cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
@@ -660,7 +660,7 @@ jobs:
 <% endif %>
 
 <% if "go" in lang_tools %>
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
           cache: <{"false" if release else "true"}>
           cache-dependency-path: <{go_mod_path}>/go.sum
@@ -794,7 +794,7 @@ jobs:
 <% endif %>
 
 <% if "go" in lang_tools %>
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
           cache: <{"false" if release else "true"}>
           check-latest: true
@@ -907,7 +907,7 @@ jobs:
 <% endif %>
     steps:
       # for now, install dbc from main
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
           cache: <{"false" if release else "true"}>
           go-version: 'stable'
