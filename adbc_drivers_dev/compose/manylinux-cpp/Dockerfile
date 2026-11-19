@@ -38,7 +38,6 @@ RUN ulimit -n 1024 && \
       zip \
       && \
     yum clean all
-ENV PATH="/usr/local/go/bin:${PATH}"
 
 ARG VCPKG_REVISION
 ARG VCPKG_SHALLOW_SINCE

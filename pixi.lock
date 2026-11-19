@@ -1223,7 +1223,7 @@ packages:
   - jinja2
   - packaging
   - platformdirs
-  - pydantic>=2.0
+  - pydantic>=2.10
   - pygit2
   - requests
   - ruamel-yaml>=0.18.11,<0.19

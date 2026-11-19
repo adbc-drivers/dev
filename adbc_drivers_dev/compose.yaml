@@ -14,12 +14,11 @@
 
 services:
   manylinux-cpp:
-    # Raise manylinux baseline to get newer GCC
-    image: ghcr.io/adbc-drivers/dev:manylinux_2_28-cpp${GO}
+    image: ghcr.io/adbc-drivers/dev:${MANYLINUX}-cpp
     build:
       context: ./compose/manylinux-cpp
       args:
-        MANYLINUX: manylinux_2_28
+        MANYLINUX: ${MANYLINUX}
         VCPKG_REVISION: ${VCPKG_REVISION}
         VCPKG_SHALLOW_SINCE: ${VCPKG_SHALLOW_SINCE}
       platforms:

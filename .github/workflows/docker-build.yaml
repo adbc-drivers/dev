@@ -60,10 +60,16 @@ jobs:
         if: github.event_name != 'schedule' && !inputs.push
         run: |
           cd adbc_drivers_dev
-          docker compose build
+          docker compose build manylinux manylinux-rust
+          for policy in manylinux_2_28 manylinux_2_34; do
+            MANYLINUX="$policy" docker compose build manylinux-cpp
+          done
 
       - name: Push
         if: github.event_name == 'schedule' || inputs.push
         run: |
           cd adbc_drivers_dev
-          docker compose build --push
+          docker compose build --push manylinux manylinux-rust
+          for policy in manylinux_2_28 manylinux_2_34; do
+            MANYLINUX="$policy" docker compose build --push manylinux-cpp
+          done
