@@ -202,7 +202,13 @@ class LangConfig(BaseModel):
         description="Configuration for building the driver.",
     )
     exclude_platforms: list[
-        typing.Literal["linux_amd64", "linux_arm64", "macos_arm64", "windows_amd64"]
+        typing.Literal[
+            "linux_amd64",
+            "linux_arm64",
+            "macos_arm64",
+            "windows_amd64",
+            "windows_arm64",
+        ]
     ] = Field(
         default_factory=list,
         alias="exclude-platforms",
