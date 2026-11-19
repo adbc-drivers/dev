@@ -51,21 +51,30 @@ python = ">=3.14.3,<3.15"
 
 [pypi-dependencies]
 adbc-drivers-dev = { git = "https://github.com/adbc-drivers/dev" }
+
+[target.linux-64.pypi-dependencies]
+adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
 <% for key, value in validation["extra_pypi_dependencies"].items() %>
 <{key}> = "<{value}>"
 <% endfor %>
 
-[target.linux-64.pypi-dependencies]
-adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
-
 [target.osx-arm64.pypi-dependencies]
 adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
+<% for key, value in validation["extra_pypi_dependencies"].items() %>
+<{key}> = "<{value}>"
+<% endfor %>
 
 [target.win-64.pypi-dependencies]
 adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
+<% for key, value in validation["extra_pypi_dependencies"].items() %>
+<{key}> = "<{value}>"
+<% endfor %>
 
 [target.linux-aarch64.pypi-dependencies]
 adbc-drivers-validation = { git = "https://github.com/adbc-drivers/validation" }
+<% for key, value in validation["extra_pypi_dependencies"].items() %>
+<{key}> = "<{value}>"
+<% endfor %>
 
 # We only support make and ci/test_package.py, not validation (as PyArrow is not available)
 [target.win-arm64.pypi-dependencies]
