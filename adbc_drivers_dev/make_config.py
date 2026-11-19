@@ -327,17 +327,6 @@ class LangScript(BaseModel):
     lang: typing.Literal["script"]
     toolchain: typing.Literal["cpp", "go", "rust"]
 
-    @property
-    def docker_container(self) -> str:
-        if self.toolchain == "cpp":
-            return "manylinux-cpp"
-        elif self.toolchain == "go":
-            return "manylinux"
-        elif self.toolchain == "rust":
-            return "manylinux-rust"
-        else:
-            raise ValueError(f"Unknown toolchain: {self.toolchain}")
-
 
 class CheckConfig(BaseModel):
     model_config = {
@@ -391,7 +380,17 @@ class MakeConfig(BaseModel):
         description="Checks to perform on the built driver",
     )
 
+    @property
+    def build_container(self) -> str:
+        toolchain = (
+            self.lang.toolchain if isinstance(self.lang, LangScript) else self.lang.lang
+        )
+        return {"cpp": "manylinux-cpp", "go": "manylinux", "rust": "manylinux-rust"}[
+            toolchain
+        ]
+
     def build_plan(self, config: MakeEnv) -> MakePlan:
+        docker_container = self.build_container if config.use_docker else None
         env_vars = default_build_env(config)
 
         if isinstance(self.lang, LangGo):
@@ -427,7 +426,6 @@ class MakeConfig(BaseModel):
             ]
 
             pre_commands = []
-            docker_container = None
             if config.target_platform == "macos":
                 ldflags.extend(
                     [
@@ -444,7 +442,6 @@ class MakeConfig(BaseModel):
                         "-extldflags=-Wl,--version-script=/only-export-adbc.ld",
                     ]
                 )
-                docker_container = "manylinux"
 
             args.extend(
                 [
@@ -517,10 +514,6 @@ class MakeConfig(BaseModel):
             prefix, suffix = config.source_library_affix
             artifact_path /= f"{prefix}{lib_name}{suffix}"
 
-            docker_container = None
-            if config.use_docker:
-                docker_container = "manylinux-rust"
-
             return MakePlan(
                 make_env=config,
                 make_config=self,
@@ -543,10 +536,6 @@ class MakeConfig(BaseModel):
             if config.target_platform == "windows" and config.ci:
                 # Force use of Git Bash on GitHub Actions
                 args = [r"C:\Program Files\Git\bin\bash.EXE", *args]
-
-            docker_container = None
-            if config.use_docker:
-                docker_container = self.lang.docker_container
 
             return MakePlan(
                 make_env=config,

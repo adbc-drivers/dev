@@ -321,7 +321,7 @@ def test_check_linux_libc_requirement() -> None:
     make_checks.check_linux_libc_requirement(
         [
             " U function@GLIBC_2.28",
-            " U function@GLIBCXX_3.4.32",
+            " U function@GLIBCXX_3.4.24",
         ],
         "manylinux_2_28",
     )
@@ -341,10 +341,19 @@ def test_check_linux_libc_requirement() -> None:
             [" U function@GLIBC_2.29"], "manylinux_2_28"
         )
 
-    with pytest.raises(RuntimeError, match="GLIBCXX_3.4.33"):
+    with pytest.raises(RuntimeError, match="GLIBCXX_3.4.25"):
         make_checks.check_linux_libc_requirement(
-            [" U function@GLIBCXX_3.4.33"], "manylinux_2_28"
+            [" U function@GLIBCXX_3.4.25"], "manylinux_2_28"
         )
+
+    make_checks.check_linux_libc_requirement(
+        [" U function@GLIBC_2.34", " U function@GLIBCXX_3.4.29"], "manylinux_2_34"
+    )
+    for symbol in ("GLIBC_2.35", "GLIBCXX_3.4.30"):
+        with pytest.raises(RuntimeError, match=symbol):
+            make_checks.check_linux_libc_requirement(
+                [f" U function@{symbol}"], "manylinux_2_34"
+            )
 
     with pytest.raises(ValueError, match="Unsupported manylinux policy"):
         make_checks.check_linux_libc_requirement([], "unknown")
@@ -391,3 +400,52 @@ def test_additional_exported_symbols() -> None:
         make_checks.check_disallowed_symbols(
             config, ["Custom"], Path("driver.so"), "driver"
         )
+
+
+@pytest.mark.parametrize(
+    ("toolchain", "settings", "policy", "service"),
+    [
+        # N.B. this won't work for a real config; C++ users need to be
+        # explicit about manylinux
+        ("cpp", {}, "manylinux2014", "manylinux-cpp"),
+        ("cpp", {"manylinux": "manylinux_2_34"}, "manylinux_2_34", "manylinux-cpp"),
+        ("go", {}, "manylinux2014", "manylinux"),
+        ("rust", {}, "manylinux2014", "manylinux-rust"),
+    ],
+)
+def test_script_linux_policy(toolchain, settings, policy, service) -> None:
+    config = make_config.MakeConfig.model_validate(
+        {
+            "driver": "dummy",
+            "lang": {"lang": "script", "toolchain": toolchain},
+            **settings,
+        }
+    )
+    assert config.manylinux == policy
+    assert config.build_container == service
+
+
+@pytest.mark.parametrize(
+    "lang,service", [("go", "manylinux"), ("rust", "manylinux-rust")]
+)
+def test_native_linux_check_container(lang, service, monkeypatch, tmp_path) -> None:
+    config = make_config.MakeConfig.model_validate(
+        {"driver": "dummy", "lang": {"lang": lang}}
+    )
+    assert config.build_container == service
+    env = make_config.MakeEnv.model_construct(
+        repo_root=tmp_path, target_platform="linux", target_architecture="amd64"
+    )
+    commands = []
+
+    def capture(args, **kwargs):
+        commands.append(args)
+        return ""
+
+    monkeypatch.setattr(make_checks.subprocess, "check_output", capture)
+    for reader in (
+        make_checks._read_linux_symbols_in_docker,
+        make_checks._read_linux_dependencies_in_docker,
+    ):
+        reader(env, config, tmp_path / "driver.so")
+    assert [args[4:6] for args in commands] == [[service, "nm"], [service, "ldd"]]

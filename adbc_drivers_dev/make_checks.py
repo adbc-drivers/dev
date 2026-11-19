@@ -145,7 +145,7 @@ def _read_linux_symbols_in_docker(
                 "compose",
                 "run",
                 "--rm",
-                "manylinux",
+                make_config.build_container,
                 "nm",
                 "--demangle",
                 "--dynamic",
@@ -178,7 +178,7 @@ def _read_linux_dependencies_in_docker(
             "compose",
             "run",
             "--rm",
-            "manylinux",
+            make_config.build_container,
             "ldd",
             f"/source/{rel_binary.as_posix()}",
         ],
@@ -319,7 +319,8 @@ def check_linux_libc_requirement(symbols: list[str], manylinux: str) -> None:
     """Check that required libc symbols are compatible with the manylinux policy."""
     limits = {
         "manylinux2014": ("2.17", "3.4.19"),
-        "manylinux_2_28": ("2.28", "3.4.32"),
+        "manylinux_2_28": ("2.28", "3.4.24"),
+        "manylinux_2_34": ("2.34", "3.4.29"),
     }
     try:
         glibc_max, glibcxx_max = limits[manylinux.lower()]
