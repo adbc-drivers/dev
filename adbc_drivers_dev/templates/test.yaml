@@ -141,7 +141,17 @@ jobs:
         run: |
           # Preinstalled tools use a lot of disk space, free up some space
           # https://github.com/actions/runner-images/issues/2840
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo ":::group:::before"
+          df -h /
+          echo ":::endgroup:::"
+
+          echo ":::group:::free up space"
+          sudo rm -rf -- "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /usr/share/dotnet
+          echo ":::endgroup:::"
+
+          echo ":::group:::after"
+          df -h /
+          echo ":::endgroup:::"
 
 <% if release or not secrets["all"] %>
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -387,7 +397,17 @@ jobs:
         run: |
           # Preinstalled tools use a lot of disk space, free up some space
           # https://github.com/actions/runner-images/issues/2840
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo ":::group:::before"
+          df -h /
+          echo ":::endgroup:::"
+
+          echo ":::group:::free up space"
+          sudo rm -rf -- "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /usr/share/dotnet
+          echo ":::endgroup:::"
+
+          echo ":::group:::after"
+          df -h /
+          echo ":::endgroup:::"
 
 <% if release or not secrets["all"] %>
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
