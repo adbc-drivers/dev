@@ -21,6 +21,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-cargo-deny = "=0.20.2"
+cargo-deny = "=0.22.0"
 cargo-about = "=0.9.3"
 pixi = { git = "https://github.com/prefix-dev/pixi", tag = "v0.84.2" }
