@@ -281,8 +281,7 @@ def latest_action_version(action: str) -> (packaging.version.Version, str, str):
     for line in result.strip().splitlines():
         sha, ref = line.split()
         tag = ref.removeprefix("refs/tags/").removesuffix("^{}")
-        if tag == "master" or "-node" in tag or tag == "testEnableForGHES":
-            # aws-actions/configure-aws-credentials, others have weird tags
+        if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
             continue
         refs[ref] = (sha, tag)
 

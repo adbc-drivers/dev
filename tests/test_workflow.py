@@ -20,6 +20,27 @@ import tomlkit
 from pydantic import ValidationError
 
 from adbc_drivers_dev.generate import GenerateConfig, LangConfig, LangTestConfig
+from adbc_drivers_dev.workflow import latest_action_version
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        (["v0.9.2", "v0.10.0-rc1"], ("v0.9.2", "sha0")),
+        (["v0.9.2", "v0.10.0", "v0.10.0^{}"], ("v0.10.0", "sha2")),
+        (["v1", "v1.2", "1.2.3", "v2.0.0-beta"], None),
+    ],
+)
+def test_latest_action_version(monkeypatch, tags, expected):
+    output = "\n".join(f"sha{i} refs/tags/{tag}" for i, tag in enumerate(tags))
+    monkeypatch.setattr("subprocess.check_output", lambda *args, **kwargs: output)
+    lookup = latest_action_version.__wrapped__
+    if expected is None:
+        with pytest.raises(ValueError, match="No valid version tags found"):
+            lookup("example/action")
+    else:
+        _, tag, sha = lookup("example/action")
+        assert (tag, sha) == expected
 
 
 def test_model_default() -> None:
